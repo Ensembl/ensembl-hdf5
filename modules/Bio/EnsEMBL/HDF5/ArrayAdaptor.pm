@@ -21,11 +21,11 @@ package Bio::EnsEMBL::HDF5::ArrayAdaptor;
 use strict;
 use warnings;
 
-use PDL;
-use PDL::Char;
-use PDL::IO::HDF5;
 use Bio::EnsEMBL::Utils::Exception qw/throw/;
 use Bio::EnsEMBL::Utils::Scalar qw/assert_ref/;
+use lib "/install_path"; 
+use HDFPerl;
+use Init;
 
 =head2 new
 

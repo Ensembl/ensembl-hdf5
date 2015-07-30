@@ -3,7 +3,7 @@
 hdf5/
 HDF5.c
 MYMETA.*
-ppport.h
+xs/Makefile
 pm_to_blib
 modules/Bio/EnsEMBL/HDF5/Makefile
 modules/Bio/EnsEMBL/HDF5/blib/

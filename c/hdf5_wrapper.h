@@ -54,4 +54,5 @@ StringArray * get_dim_names(hid_t file);
 StringArray * get_all_dim_labels(hid_t file, hsize_t dim);
 char * get_string_in_array(StringArray * sarray, hsize_t index);
 void destroy_string_array(StringArray * sarray);
+void set_hdf5_log(bool value);
 #endif

@@ -295,3 +295,9 @@ hdf5_close(file)
 		struct hdf5_file_st * file_st = (struct hdf5_file_st *) file;
 	CODE:
 		close_file(file_st->file);
+
+void
+hdf5_set_log(value)
+		SV * value;
+	CODE:
+		set_hdf5_log(SvIV(value));

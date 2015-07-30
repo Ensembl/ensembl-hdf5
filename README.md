@@ -8,7 +8,12 @@ Wrapper for the Ensembl Perl API around large numerical arrays in HDF5 format.
 Requirements
 ------------
 
-This package depends on [PDL](http://pdl.perl.org/) and [PDL::IO::HDF5](http://search.cpan.org/~chm/PDL-IO-HDF5-0.6501/hdf5.pd). (In my experience, CPAN cannot install them properly, so I did it manually.)
+This package requires an installation of the [HDF5 library](https://www.hdfgroup.org/HDF5/).
+
+Installation
+------------
+
+Type 'make'. Unit tests are run automatically.
 
 Data structures
 ---------------
@@ -26,8 +31,12 @@ Creating a new database
 -----------------------
 
 ```
-my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor($filename);
-$aa->set_data($original_data);
+my $dim_labels = {
+  gene => ['A', 'B'],
+  snp => ['rs1', 'rs2']
+};
+my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor($filename, $dim_labels);
+$aa->store($original_data);
 ```
 
 Querying a database
@@ -35,7 +44,7 @@ Querying a database
 
 All the data except for undefined or null values:
 ```
-my $data_points = $aa->get();
+my $data_points = $aa->fetch();
 ```
 which returns:
 ```
@@ -47,7 +56,7 @@ which returns:
 
 A subset of the data:
 ```
-my $data_points = $aa->get({gene => 'A'});
+my $data_points = $aa->fetch({gene => 'A'});
 ```
 which returns:
 ```
@@ -55,6 +64,8 @@ which returns:
   {snp => 'rs1', value=>.1}
 ]
 ```
+
+You can add as many constraints as you wish. Each dimension either has a fixed value or none.
 
 Contact us
 ----------

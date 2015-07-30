@@ -12,6 +12,5 @@
 #define _HDF5_WRAPPER_PRIV_H_
 
 void set_big_dim_length(int length);
-void set_hdf_log(bool value);
 
 #endif

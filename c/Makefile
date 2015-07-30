@@ -1,6 +1,6 @@
 CFLAGS=-g -Wall -fPIC
 INC=
-LIB_PATHS=-L./ -L/nfs/users/nfs_d/dz1/.local/lib
+LIB_PATHS=-L./
 LIBS=-lhdf5_wrapper -lhdf5
 
 default: lib test

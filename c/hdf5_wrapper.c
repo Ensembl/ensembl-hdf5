@@ -30,7 +30,7 @@ static hsize_t volume(hsize_t rank, hsize_t * dim_sizes) {
 }
 
 static void * alloc_ndim_array(hsize_t rank, hsize_t * dim_sizes, size_t elem_size) {
-	return calloc(volume(rank, dim_sizes), elem_size);
+	return calloc(1 + volume(rank, dim_sizes), elem_size);
 }
 
 ////////////////////////////////////////////////////////
@@ -275,7 +275,7 @@ static void store_values_in_matrix(hid_t file, hsize_t count, hsize_t ** coords,
 
 static double * fetch_values(hid_t file, hsize_t * offset, hsize_t * width) {
 	hsize_t rank = get_file_rank(file);
-	double * array = alloc_ndim_array(rank, width, sizeof(double));
+	double * array = alloc_ndim_array(rank, width, H5Tget_size(H5T_NATIVE_DOUBLE));
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
 	hid_t dataspace = H5Dget_space(dataset);
 	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
@@ -424,7 +424,7 @@ static long * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, 
 	width[2] = 2;
 	hid_t dataspace = H5Dget_space(dataset);
 	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
-	long * res = calloc((core_rank - 1) * 2, sizeof(long));
+	long * res = alloc_ndim_array(3, width, H5Tget_size(H5T_NATIVE_LONG));
 	H5Dread(dataset, H5T_NATIVE_LONG, H5S_ALL, dataspace, H5P_DEFAULT, res);
 	H5Sclose(dataspace);
 	H5Dclose(dataset);
@@ -502,6 +502,13 @@ static bool set_query_parameters(hid_t file, hsize_t rank, bool * set_dims, hsiz
 		}
 	}
 
+	if (DEBUG) {
+		printf("About to explore a field of (");
+		for (dim = 0; dim < rank; dim++)
+			printf("%llix", width[dim]);
+		puts(") values;");
+	}
+
 	// Cleaning up
 	for (dim = 0; dim < core_rank; dim++)
 		if (set_dims[dim + rank - core_rank])
@@ -569,13 +576,6 @@ static void unroll_matrix_recursive(double ** reader_ptr, hsize_t rank, hsize_t*
 	hsize_t index;
 	if (current_dim == rank - 1) {
 		for (index = 0; index < width[current_dim]; index++) {
-			if (DEBUG) {
-				int dim;
-				printf("Examining position at (");
-				for (dim = 0; dim < table->columns; dim++)
-					printf("%lli,", offset[dim]);
-				puts(")");
-			}
 			if (**reader_ptr) {
 				enter_new_data_point(table, rank, *write_index, offset, **reader_ptr);
 				(*write_index)++;
@@ -609,6 +609,7 @@ static ResultTable * unroll_matrix(double * array, hsize_t rank, hsize_t * offse
 	hsize_t write_index = 0;
 	hsize_t * offset2 = calloc(rank, sizeof(hsize_t));
 	hsize_t dim;
+
 	for (dim = 0; dim < rank; dim++)
 		offset2[dim] = offset[dim];
 	double * reader_ptr = array;
@@ -648,7 +649,7 @@ static char ** stringify_dim_names(hid_t file, ResultTable * table, StringArray 
 
 static char *** stringify_coords(hid_t file, ResultTable * table, hsize_t * offset, StringArray ** dim_labels) {
 	char *** coords = calloc(table->rows, sizeof(char **));
-	hid_t row, dim;
+	hsize_t row, dim;
 	for (row = 0; row < table->rows; row++) {
 		coords[row] = calloc(table->columns, sizeof(char **));
 		for (dim = 0; dim < table->columns; dim++) {
@@ -756,7 +757,24 @@ StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * c
 	if (set_query_parameters(file, rank, set_dims, constraints, offset, width))
 		return NULL;
 
+	if (DEBUG) {
+		hid_t dim;
+		printf("About to explore a field of (");
+		for (dim = 0; dim < rank; dim++)
+			printf("%llix", width[dim]);
+		puts(") values;");
+	}
+
 	double * array = fetch_values(file, offset, width);
+
+	if (DEBUG) {
+		hid_t dim;
+		printf("YAbout to explore a field of (");
+		for (dim = 0; dim < rank; dim++)
+			printf("%llix", width[dim]);
+		puts(") values;");
+	}
+
 	ResultTable * table = unroll_matrix(array, rank, offset, width, set_dims);
 	if (DEBUG) 
 		printf("Found %lli values\n", table->rows);

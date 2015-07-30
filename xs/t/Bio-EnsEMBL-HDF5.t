@@ -8,6 +8,9 @@ BEGIN { use_ok('Bio::EnsEMBL::HDF5') };
 
 use Bio::EnsEMBL::HDF5;
 
+# For chatty output
+#Bio::EnsEMBL::HDF5::set_log(1);
+
 my ($fh, $filename) = tempfile();
 Bio::EnsEMBL::HDF5::create($filename, {'gene' => ['A','B'], 'snp' => ['rs1','rs2']});
 
@@ -17,11 +20,15 @@ my $labels = Bio::EnsEMBL::HDF5::get_dim_labels($hdfh);
 
 my $original_data = [
   {gene => 0, snp => 0, value=>.1},
+];
+
+my $original_data2 = [
   {gene => 1, snp => 1, value=>.2}
 ];
 
 # Inserting data into file
 Bio::EnsEMBL::HDF5::store($hdfh, $original_data);
+Bio::EnsEMBL::HDF5::store($hdfh, $original_data2);
 
 # Pulling out all the data
 my @output_data = @{Bio::EnsEMBL::HDF5::fetch($hdfh, {})};

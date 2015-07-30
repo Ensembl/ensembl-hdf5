@@ -67,6 +67,11 @@ which returns:
 
 You can add as many constraints as you wish. Each dimension either has a fixed value or none.
 
+Longer example
+--------------
+
+See modules/t/ArrayAdaptor.t for a longer example.
+
 Contact us
 ----------
 

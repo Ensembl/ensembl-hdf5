@@ -18,7 +18,7 @@ Type 'make'. Unit tests are run automatically.
 Data structures
 ---------------
 
-All data, whether input or output, is assumed to come as an arrayref containing hashfrefs, where each hashref associates one value to each key. The only reserved keyword is _value_ which points to the numerical value contained in the matrix, e.g:
+All data, whether input or output, is assumed to come as an arrayref containing hashfrefs, where each hashref associates one value to each key. There can be as many keys as you wish, so long as every hashref has the same keys. The only reserved and required keyword is _value_ which points to the numerical value contained in the matrix, e.g:
 
 ```
 my $original_data = [

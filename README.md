@@ -35,7 +35,7 @@ my $dim_labels = {
   gene => ['A', 'B'],
   snp => ['rs1', 'rs2']
 };
-my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor($filename, $dim_labels);
+my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor(-FILENAME => $filename, -LABELS => $dim_labels);
 $aa->store($original_data);
 ```
 

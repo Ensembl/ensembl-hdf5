@@ -1,3 +1,21 @@
+=head1 LICENSE
+
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=cut
+
 use strict;
 use warnings;
 
@@ -10,7 +28,7 @@ use File::Temp qw/tempfile/;
 
 my ($fh, $filename) = tempfile();
 print "Creating file\n";
-my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor($filename, {gene => ['A','B'], snp => ['rs1','rs2']});
+my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor(-FILENAME => $filename, -LABELS => {gene => ['A','B'], snp => ['rs1','rs2']}, -DBNAME => ':memory:');
 
 my $dim_labels = Bio::EnsEMBL::HDF5::get_dim_labels($aa->{hdf5});
 
@@ -54,10 +72,9 @@ ok($data_point->{value} == .1);
 # Test whether an error is raised when an unkown gene is requested
 ok(eval {$aa->fetch({gene => 'C'}); 0;} || 1);
 
-done_testing;
+$aa->close;
 
-unlink $filename;
-unlink $filename.".sqlite3";
+done_testing;
 
 # Little convenience function for debugging
 sub print_dataset {

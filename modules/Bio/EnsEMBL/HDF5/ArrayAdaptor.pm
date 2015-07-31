@@ -1,14 +1,29 @@
-=pod
-
 =head1 LICENSE
 
-  Copyright (c) 1999-2015 The European Bioinformatics Institute and
-  Genome Research Limited.  All rights reserved.
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 
-  This software is distributed under a modified Apache license.
-  For license details, please see
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-  http://www.ensembl.org/info/about/code_licence.html
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=cut
+
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <http://www.ensembl.org/Help/Contact>.
 
 =head1 NAME
 
@@ -21,7 +36,8 @@ package Bio::EnsEMBL::HDF5::ArrayAdaptor;
 use strict;
 use warnings;
 
-use DBI;
+use Bio::EnsEMBL::DBSQL::DBConnection;
+use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
 use Bio::EnsEMBL::Utils::Exception qw/throw/;
 use Bio::EnsEMBL::Utils::Scalar qw/assert_ref/;
 use Bio::EnsEMBL::HDF5;
@@ -36,14 +52,21 @@ use Bio::EnsEMBL::HDF5;
 =cut
 
 sub new {
-  my ($class, $filename, $dim_labels) = @_;
+  my $class = shift;
+  my ($filename, $dim_labels, $dbname) = rearrange(['FILENAME','LABELS','DBNAME'], @_);
+
+  defined $filename || die ("Must specify HDF5 filename!");
+
+  $dbname ||= $filename . ".sqlite3";
   
   my $self = {
     hdf5 => undef,
-    sqlite3 => undef,
+    sqlite3 => Bio::EnsEMBL::DBSQL::DBConnection->new(-DBNAME => $dbname, -DRIVER => 'SQLite'),
     dim_labels => undef,
     st_handles => {}
   };
+
+  bless $self, $class;
 
   if (! (-e $filename) || -z $filename) {
     if (! defined $dim_labels) {
@@ -52,17 +75,13 @@ sub new {
 
     if (-e $filename && -z $filename) {
       unlink $filename;
-      unlink $filename . ".sqlite3";
     }
 
     Bio::EnsEMBL::HDF5::create($filename, $dim_labels);
-    _create_sqlite3_file($filename, $dim_labels);
+    $self->_create_sqlite3_file($filename, $dim_labels);
   }
   
   $self->{hdf5} = Bio::EnsEMBL::HDF5::open($filename); 
-  $self->{sqlite3} =  DBI->connect("dbi:SQLite:dbname=" . $filename . ".sqlite3","","");
-
-  bless $self, $class;
 
   return $self;
 }
@@ -75,13 +94,11 @@ sub new {
 =cut
 
 sub _create_sqlite3_file {
-  my ($filename, $dim_labels) = @_;
+  my ($self, $filename, $dim_labels) = @_;
 
-  my $dbh =  DBI->connect("dbi:SQLite:dbname=" . $filename . ".sqlite3","","");
   foreach my $key (keys %$dim_labels) {
-    _create_sqlite3_table($dbh, $key, $dim_labels->{$key});
+    $self->_create_sqlite3_table($key, $dim_labels->{$key});
   }
-  $dbh->disconnect;
 }
 
 =head2 _create_sqlite3_table
@@ -92,7 +109,7 @@ sub _create_sqlite3_file {
 =cut
 
 sub _create_sqlite3_table {
-  my ($dbh, $dim_name, $dim_labels) = @_;
+  my ($self, $dim_name, $dim_labels) = @_;
 
   # Create table
   my $sql = "
@@ -101,9 +118,9 @@ sub _create_sqlite3_table {
     external_id	INTEGER
   )
   ";
-  $dbh->do($sql);
+  $self->{sqlite3}->do($sql);
   my $sql2 = "INSERT INTO $dim_name (external_id, hdf5_index) VALUES (?,?)";
-  my $sth = $dbh->prepare($sql2);
+  my $sth = $self->{sqlite3}->prepare($sql2);
   my @indices = (0..(scalar(@$dim_labels)-1));
   $sth->execute_array({}, $dim_labels, \@indices);
 }
@@ -185,7 +202,10 @@ sub fetch {
 sub close {
   my ($self) = @_;
   Bio::EnsEMBL::HDF5::close($self->{hdf5});
-  $self->{sqlite3}->disconnect;
+  foreach my $key (keys %{$self->{st_handles}}) {
+    $self->{st_handles}{$key}->finish;
+  }
+  $self->{sqlite3}->db_handle->disconnect;
 }
 
 1;

@@ -1,7 +1,5 @@
-default: xs
-
-test:
-	perl modules/t/ArrayAdaptor.t
+default: xs 
+	perl t/ArrayAdaptor.t
 
 xs: xs/blib/arch/auto/Bio/EnsEMBL/HDF5
 

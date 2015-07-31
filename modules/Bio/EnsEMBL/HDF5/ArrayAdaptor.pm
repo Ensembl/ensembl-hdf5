@@ -144,11 +144,7 @@ sub _get_numerical_value {
   $self->{st_handles}{$dim}->execute($label);
   my @row =  $self->{st_handles}{$dim}->fetchrow_array;
 
-  my $sth2 = $self->{sqlite3}->prepare("SELECT * FROM $dim");
-  $sth2->execute;
-  my $rows = $sth2->fetchall_arrayref;
-
-  scalar @row > 0 || die;
+  scalar @row > 0 || die("Label $label unknown in dimension $dim");
   return $row[0];
 }
 
@@ -161,7 +157,6 @@ sub _get_numerical_value {
 
 sub _convert_coords {
   my ($self, $coords) = @_;
-  defined $coords || die;
   my $numerical_coords = {};
   foreach my $key (keys %$coords) {
     $numerical_coords->{$key} = $self->_get_numerical_value($key, $coords->{$key});

@@ -13,7 +13,43 @@ This package requires an installation of the [HDF5 library](https://www.hdfgroup
 Installation
 ------------
 
+If you did not install the HDF5 library on a standard location (e.g. usr/shared/lib) then you may need to tell the C compiler about it. 
+
+In c/Makefile change these lines:
+```
+-INC=
++INC=-I/path/to/include/directory/
+-LIB_PATHS=-L./
++LIB_PATHS=-L./ -L/path/to/lib/directory
+```
+
+In xs/Makefile.PL change these lines:
+```
+-    LIBS              => ['-L../c -lhdf5_wrapper -lhdf5'],
++    LIBS              => ['-L../c -lhdf5_wrapper -L/path/to/lib/directory -lhdf5'],
+-    INC               => '-I../c',
++    INC               => '-I../c -I/path/to/include/directory',
+```
+
 Type 'make'. Unit tests are run automatically.
+
+If things are not working, here is a decomposition of the make process:
+```
+# C library
+cd c
+make
+
+# XS Library
+cd ../xs
+perl Makefile.PL
+make
+cp ./blib/arch/auto/Bio/EnsEMBL/HDF5/HDF5.so `echo $PERL5LIB | sed -e 's/:.*//'`/auto/Bio/EnsEMBL/HDF5/HDF5.so
+perl t/*
+
+# Perl Library
+cd ..
+perl t/*
+```
 
 Data structures
 ---------------

@@ -187,13 +187,15 @@ static StringArray * get_string_subarray(hid_t file, char * dataset_name, hsize_
 	if (DEBUG)
 		printf("Querying names in %s: %lli-%lli\n", dataset_name, offset, offset + count);
 	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset2, NULL, width, NULL);
-	H5Dread(dataset, H5T_NATIVE_CHAR, H5S_ALL, dataspace, H5P_DEFAULT, dim_names->array);
+	hid_t memspace = H5Screate_simple(2, width, NULL);
+	H5Dread(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, dim_names->array);
 	if (DEBUG) {
 		int i;
 		for (i = 0; i < dim_names->count; i++)
 			printf("%lli => %s\n", offset + i, get_string_in_array(dim_names, i));
 	}
 	H5Sclose(dataspace);
+	H5Sclose(memspace);
 	H5Dclose(dataset);
 	return dim_names;
 }
@@ -347,8 +349,10 @@ static double * fetch_values(hid_t file, hsize_t * offset, hsize_t * width) {
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
 	hid_t dataspace = H5Dget_space(dataset);
 	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
-	H5Dread(dataset, H5T_NATIVE_DOUBLE, H5S_ALL, dataspace, H5P_DEFAULT, array);
+	hid_t memspace = H5Screate_simple(rank, width, NULL);
+	H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, array);
 	H5Sclose(dataspace);
+	H5Sclose(memspace);
 	H5Dclose(dataset);
 	return array;
 }
@@ -493,8 +497,10 @@ static long * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, 
 	hid_t dataspace = H5Dget_space(dataset);
 	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
 	long * res = alloc_ndim_array(3, width, H5Tget_size(H5T_NATIVE_LONG));
-	H5Dread(dataset, H5T_NATIVE_LONG, H5S_ALL, dataspace, H5P_DEFAULT, res);
+	hid_t memspace = H5Screate_simple(3, width, NULL);
+	H5Dread(dataset, H5T_NATIVE_LONG, memspace, dataspace, H5P_DEFAULT, res);
 	H5Sclose(dataspace);
+	H5Sclose(memspace);
 	H5Dclose(dataset);
 	return res;
 }

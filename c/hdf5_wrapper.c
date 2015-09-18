@@ -87,19 +87,76 @@ static StringArray * normalize_strings(char ** strings, hsize_t count, hsize_t l
 	return sarray;
 }
 
-static void store_string_array(hid_t file, char * dataset_name, hsize_t count, char ** strings) {
-	hsize_t max_length = max_string_length(strings, count);
+static void create_string_array_table(hid_t file, char * dataset_name, hsize_t count, hsize_t max_length) {
 	hsize_t shape[2];
 	shape[0] = count;
 	shape[1] = max_length + 1;
 	if (DEBUG)
-		printf("Storing %lli names in %s:%llix%lli\n", count, dataset_name, shape[0], shape[1]);
+		printf("Allocating space for %lli names of length %lli in %s\n", count, shape[1], dataset_name);
 	hid_t dataspace = H5Screate_simple(2, shape, NULL);
 	hid_t dataset = H5Dcreate(file, dataset_name, H5T_NATIVE_CHAR, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-	StringArray * sarray = normalize_strings(strings, count, max_length);
-	H5Dwrite(dataset, H5T_NATIVE_CHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, sarray->array);
-	destroy_string_array(sarray);
+
+	// Store initial offset
+        hid_t aid  = H5Screate(H5S_SCALAR);
+        hid_t attr = H5Acreate(dataset, "count", H5T_NATIVE_HSIZE, aid, H5P_DEFAULT, H5P_DEFAULT);
+	hsize_t offset = 0;
+        H5Awrite(attr, H5T_NATIVE_HSIZE, &offset);
+        H5Aclose(attr);
+
 	H5Sclose(dataspace);
+	H5Dclose(dataset);
+}
+
+static void store_string_array(hid_t file, char * dataset_name, hsize_t count, char ** strings) {
+	if (DEBUG) {
+		printf("Writing in %lli names into dataset %s of file %i:\n", count, dataset_name, file);
+		int i;
+		for (i = 0; i < count; i++)
+			printf("%i:\t%s\n", i, strings[i]);
+	}
+	hid_t dataset = H5Dopen(file, dataset_name, H5P_DEFAULT);
+	hsize_t max_length = max_string_length(strings, count);
+
+	hid_t dataspace = H5Dget_space(dataset);
+
+	// Checking that max_length fits in dataspace
+	hsize_t shape[2];
+	H5Sget_simple_extent_dims(dataspace, shape, NULL);
+	if (shape[1] < max_length + 1) {
+		printf("This table was not designed to store strings of length %lli, rather %lli\n", max_length, shape[1]);
+		abort();
+	}
+	StringArray * sarray = normalize_strings(strings, count, shape[1]-1);
+
+	// Read last offset on that table
+	hsize_t total_count;
+	hid_t attr = H5Aopen(dataset, "count", H5P_DEFAULT);
+	H5Aread(attr, H5T_NATIVE_HSIZE, &total_count);
+
+	// Write into table
+	hsize_t offset[2];
+	offset[0] = total_count;
+	offset[1] = 0;
+	hsize_t width[2];
+	width[0] = count;
+	width[1] = shape[1];
+	hid_t memspace = H5Screate_simple(2, width, NULL);
+	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
+	H5Dwrite(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, sarray->array);
+
+	char * string = calloc(shape[0] * shape[1], sizeof(char));
+	H5Dread(dataset, H5T_NATIVE_CHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, string);
+	free(string);
+
+	// Store new offset
+	total_count += count;
+        H5Awrite(attr, H5T_NATIVE_HSIZE, &total_count);
+
+	// Clean up 
+	destroy_string_array(sarray);
+	H5Aclose(attr);
+	H5Sclose(dataspace);
+	H5Sclose(memspace);
 	H5Dclose(dataset);
 }
 
@@ -144,12 +201,7 @@ static StringArray * get_string_subarray(hid_t file, char * dataset_name, hsize_
 ////////////////////////////////////////////////////////
 
 static void store_dim_names(hid_t file, hsize_t rank, char ** strings) {
-	if (DEBUG) {
-		printf("Storing dim names\n");
-		int i;
-		for (i = 0; i < rank; i++)
-			printf("%s\n", strings[i]);
-	}
+	create_string_array_table(file, "/dim_names", rank, max_string_length(strings, rank));
 	store_string_array(file, "/dim_names", rank, strings);
 }
 
@@ -168,17 +220,25 @@ StringArray * get_dim_names(hid_t file) {
 // Dim labels
 ////////////////////////////////////////////////////////
 
-static void store_dim_labels(hid_t group, hsize_t dim, hsize_t dim_size, char ** strings) {
+static void create_dim_labels_table(hid_t group, hsize_t dim, hsize_t dim_size, hsize_t dim_label_length) {
 	char buf[5];
 	sprintf(buf, "%llu", dim);
-	store_string_array(group, buf, dim_size, strings);
+	create_string_array_table(group, buf, dim_size, dim_label_length);
 }
 
-static void store_all_dims_labels(hid_t file, hsize_t rank, hsize_t * dim_sizes, char *** dim_labels) {
+static void create_all_dim_label_tables(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t * dim_label_lengths) {
 	hsize_t dim;
 	hid_t group = H5Gcreate(file, "/dim_labels", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 	for (dim = 0; dim < rank; dim++)
-		store_dim_labels(group, dim, dim_sizes[dim], dim_labels[dim]);
+		create_dim_labels_table(group, dim, dim_sizes[dim], dim_label_lengths[dim]);
+	H5Gclose(group);
+}
+
+static void store_dim_labels_in_table(hid_t file, hsize_t dim, hsize_t dim_size, char ** strings) {
+	char buf[5];
+	sprintf(buf, "%llu", dim);
+	hid_t group = H5Gopen(file, "/dim_labels", H5P_DEFAULT);
+	store_string_array(group, buf, dim_size, strings);
 	H5Gclose(group);
 }
 
@@ -687,7 +747,6 @@ static StringResultTable * stringify_result_table(hid_t file, hsize_t * offset, 
 typedef struct dim_st {
 	char * name;
 	hsize_t size;
-	char ** labels;
 	hsize_t original;
 } Dimension;
 
@@ -700,8 +759,7 @@ static int cmp_dims(const void * a, const void * b) {
 		return A->original - B->original;
 }
 
-hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * dim_sizes, char *** dim_labels, hsize_t * chunk_sizes) {
-	hsize_t core_rank = 0;
+hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * dim_sizes, hsize_t * dim_label_lengths, hsize_t * chunk_sizes) {
 	hsize_t dim;
 	Dimension * dims = calloc(rank, sizeof(Dimension));
 
@@ -720,7 +778,6 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 			core_rank++;
 		dims[dim].name = dim_names[dim];
 		dims[dim].size = dim_sizes[dim];
-		dims[dim].labels = dim_labels[dim];
 		dims[dim].original = dim;
 	}
 	
@@ -729,16 +786,37 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 	for (dim = 0; dim<rank; dim++) {
 		dim_names[dim] = dims[dim].name;
 		dim_sizes[dim] = dims[dim].size;
-		dim_labels[dim] = dims[dim].labels;
 	}
 	
 	hid_t file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
 	store_dim_names(file, rank, dim_names);
-	store_all_dims_labels(file, rank, dim_sizes, dim_labels);
+	create_all_dim_label_tables(file, rank, dim_sizes, dim_label_lengths);
 	create_matrix(file, rank, dim_sizes, chunk_sizes);
 	set_file_core_rank(file, core_rank);
 	create_boundaries(file, rank, core_rank, dim_sizes);
 	return file;
+}
+
+void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** strings) {
+	hsize_t dim;
+	if (DEBUG) {
+		printf(">>>>>>>>>>>>>>> STORE %lli DIM LABEL(S) FOR DIM %s IN FILE %i:\n", dim_size, dim_name, file);
+		for (dim = 0; dim < dim_size; dim++)
+			printf("%lli:\t%s\n", dim, strings[dim]);
+	}
+	hsize_t rank = get_file_rank(file);
+	fflush(stdout);
+	StringArray * dim_names = get_dim_names(file);
+	for (dim = 0; dim < rank; dim++) {
+		if (!strcmp(dim_name, get_string_in_array(dim_names, dim))) {
+			store_dim_labels_in_table(file, dim, dim_size, strings);
+			destroy_string_array(dim_names);
+			return;
+		}
+	}
+
+	printf("Could not find dimension named %s, exiting\n", dim_name);
+	abort();
 }
 
 void store_values(hid_t file, hsize_t count, hsize_t ** coords, double * values) {

@@ -44,7 +44,8 @@ typedef struct string_result_table_st {
 	StringArray * dim_names;
 } StringResultTable;
 
-hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * dim_sizes, char *** dim_labels, hsize_t * chunk_sizes);
+hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * dim_sizes, hsize_t * dim_label_lengths, hsize_t * chunk_sizes);
+void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** dim_labels);
 void store_values(hid_t file, hsize_t count, hsize_t ** coords, double * values);
 hid_t open_file(char * filename);
 StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * constraints);

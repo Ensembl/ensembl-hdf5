@@ -38,8 +38,6 @@ use warnings;
 
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
-use Bio::EnsEMBL::Utils::Exception qw/throw/;
-use Bio::EnsEMBL::Utils::Scalar qw/assert_ref/;
 use Bio::EnsEMBL::HDF5;
 
 =head2 new
@@ -53,7 +51,7 @@ use Bio::EnsEMBL::HDF5;
 
 sub new {
   my $class = shift;
-  my ($filename, $dim_labels, $dbname) = rearrange(['FILENAME','LABELS','DBNAME'], @_);
+  my ($filename, $dim_sizes, $dim_label_lengths, $dbname) = rearrange(['FILENAME','SIZES', 'LABEL_LENGTHS','DBNAME'], @_);
 
   defined $filename || die ("Must specify HDF5 filename!");
 
@@ -69,16 +67,17 @@ sub new {
   bless $self, $class;
 
   if (! (-e $filename) || -z $filename) {
-    if (! defined $dim_labels) {
-      die("Cannot create a new HDF5 store without dimensional labels");
+    if (! defined $dim_sizes || !defined $dim_label_lengths) {
+      die("Cannot create a new HDF5 store without dimensional label info");
     }
 
     if (-e $filename && -z $filename) {
       unlink $filename;
     }
 
-    Bio::EnsEMBL::HDF5::create($filename, $dim_labels);
-    $self->_create_sqlite3_file($filename, $dim_labels);
+    Bio::EnsEMBL::HDF5::create($filename, $dim_sizes, $dim_label_lengths);
+    my @dim_names = keys %$dim_sizes;
+    $self->_create_sqlite3_file($filename, \@dim_names);
   }
   
   $self->{hdf5} = Bio::EnsEMBL::HDF5::open($filename); 
@@ -94,35 +93,57 @@ sub new {
 =cut
 
 sub _create_sqlite3_file {
-  my ($self, $filename, $dim_labels) = @_;
+  my ($self, $filename, $dim_names) = @_;
 
-  foreach my $key (keys %$dim_labels) {
-    $self->_create_sqlite3_table($key, $dim_labels->{$key});
+  foreach my $key (@$dim_names) {
+    $self->_create_sqlite3_table($key);
   }
 }
 
 =head2 _create_sqlite3_table
 
   Argument [1]: Dimension name
-  Argument [2]: Array of ids
 
 =cut
 
 sub _create_sqlite3_table {
-  my ($self, $dim_name, $dim_labels) = @_;
+  my ($self, $dim_name) = @_;
 
-  # Create table
   my $sql = "
   CREATE TABLE $dim_name (
-    hdf5_index	INTEGER PRIMARY KEY NOT NULL,
+    hdf5_index	INTEGER PRIMARY KEY AUTOINCREMENT,
     external_id	INTEGER
   )
   ";
   $self->{sqlite3}->do($sql);
-  my $sql2 = "INSERT INTO $dim_name (external_id, hdf5_index) VALUES (?,?)";
+}
+
+
+=head2 store_dim_labels
+
+  Argument [1]: dim name
+  Argument [2]: array of labels
+
+=cut
+
+sub store_dim_labels {
+  my ($self, $dim_name, $dim_labels) = @_;
+  Bio::EnsEMBL::HDF5::store_dim_labels($self->{hdf5}, $dim_name, $dim_labels);
+  $self->_insert_into_sqlite3_table($dim_name, $dim_labels);
+}
+
+=head2 _insert_into_sqlite3_table
+
+  Argument [1]: Dimension name
+  Argument [2]: Array of ids
+
+=cut
+
+sub _insert_into_sqlite3_table {
+  my ($self, $dim_name, $dim_labels) = @_;
+  my $sql2 = "INSERT INTO $dim_name (external_id) VALUES (?)";
   my $sth = $self->{sqlite3}->prepare($sql2);
-  my @indices = (0..(scalar(@$dim_labels)-1));
-  $sth->execute_array({}, $dim_labels, \@indices);
+  $sth->execute_array({}, $dim_labels);
 }
 
 =head2 _get_numerical_value
@@ -145,7 +166,8 @@ sub _get_numerical_value {
   my @row =  $self->{st_handles}{$dim}->fetchrow_array;
 
   scalar @row > 0 || die("Label $label unknown in dimension $dim");
-  return $row[0];
+  ## Note that SQLite3 autoincrement starts at 1, instead of 0 for HDF5 indices
+  return $row[0] - 1;
 }
 
 =head2 _convert_coords

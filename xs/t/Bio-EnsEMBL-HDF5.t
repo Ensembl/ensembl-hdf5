@@ -30,9 +30,13 @@ use Bio::EnsEMBL::HDF5;
 #Bio::EnsEMBL::HDF5::set_log(1);
 
 my ($fh, $filename) = tempfile();
-Bio::EnsEMBL::HDF5::create($filename, {'gene' => ['A','B'], 'snp' => ['rs1','rs2']});
+Bio::EnsEMBL::HDF5::create($filename, {gene => 2, snp => 2}, {gene => 1, snp => 3});
 
 ok(my $hdfh = Bio::EnsEMBL::HDF5::open($filename));
+
+Bio::EnsEMBL::HDF5::store_dim_labels($hdfh, 'gene', ['A','B']);
+Bio::EnsEMBL::HDF5::store_dim_labels($hdfh, 'snp', ['rs1']);
+Bio::EnsEMBL::HDF5::store_dim_labels($hdfh, 'snp', ['rs2']);
 
 my $labels = Bio::EnsEMBL::HDF5::get_dim_labels($hdfh);
 

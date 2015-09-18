@@ -27,55 +27,52 @@ struct hdf5_file_st {
 MODULE = Bio::EnsEMBL::HDF5 PACKAGE = Bio::EnsEMBL::HDF5 PREFIX=hdf5_
 
 void
-hdf5_create(filename_sv, dim_labels_hv)
-		SV * filename_sv;
-		HV * dim_labels_hv;
+hdf5_create(filename_sv, dim_sizes_hv, dim_label_lengths_hv)
+		SV * filename_sv
+		HV * dim_sizes_hv
+		HV * dim_label_lengths_hv
 	PREINIT:
 		hsize_t rank;
 		char ** dim_names;
 		hsize_t * dim_sizes;
-		char *** dim_labels;
+		hsize_t * dim_label_lengths;
 		int dim;
 		hsize_t index;
 		char * filename;
+		hid_t file;
 	CODE:
 		// Allocate memory
-		rank = hv_iterinit(dim_labels_hv);
+		rank = hv_iterinit(dim_sizes_hv);
 		dim_names = calloc(rank, sizeof(char*));
 		dim_sizes = calloc(rank, sizeof(hsize_t));
-		dim_labels = calloc(rank, sizeof(char **));
+		dim_label_lengths = calloc(rank, sizeof(hsize_t));
 
 		// Read dimension names and labels from hash ref
 		for (dim = 0; dim < rank; dim++) {
 			// Iteration
-			HE * hash_entry = hv_iternext(dim_labels_hv);
+			HE * hash_entry = hv_iternext(dim_sizes_hv);
 
-			// Dereference data
+			// Dim name
 			SV * sv_key = hv_iterkeysv(hash_entry);
-			SV * labels_sv = hv_iterval(dim_labels_hv, hash_entry);
-			AV * labels_av = (AV *) SvRV(labels_sv);
-
-			// Update C arrays
 			dim_names[dim] = SvPV(sv_key, PL_na);
-			dim_sizes[dim] = av_len(labels_av) + 1;
-			dim_labels[dim] = calloc(dim_sizes[dim], sizeof(char **));
-			for (index = 0; index < dim_sizes[dim]; index++) {
-				SV ** dim_label_sv = av_fetch(labels_av, index, 0); 
-				dim_labels[dim][index] = SvPV(*dim_label_sv, PL_na);
-			}
+
+			// Dim size
+			SV * dim_size_sv = hv_iterval(dim_sizes_hv, hash_entry);
+			dim_sizes[dim] = SvIV(dim_size_sv);
+			
+			// Dim label length
+			SV ** dim_label_lengths_sv = hv_fetch(dim_label_lengths_hv, dim_names[dim], strlen(dim_names[dim]), 0);
+			dim_label_lengths[dim] = SvIV(*dim_label_lengths_sv);
 		}
 
 		// Create file
 		filename = SvPV_nolen(filename_sv);
-		create_file(filename, rank, dim_names, dim_sizes, dim_labels, NULL);
+		file = create_file(filename, rank, dim_names, dim_sizes, dim_label_lengths, NULL);
 
 		// Clean up memory
-		for (dim = 0; dim < rank; dim++) {
-			free(dim_labels[dim]);
-		}
 		free(dim_names);
 		free(dim_sizes);
-		free(dim_labels);
+		free(dim_label_lengths);
 
 void * 
 hdf5_open(filename_sv)
@@ -112,6 +109,45 @@ hdf5_open(filename_sv)
 		RETVAL = file; 
 	OUTPUT:
 		RETVAL
+
+void
+hdf5_store_dim_labels(file, dim_name_sv, dim_labels_sv)
+		void * file
+		SV * dim_name_sv
+		SV * dim_labels_sv
+	PREINIT:
+		struct hdf5_file_st * file_st = (struct hdf5_file_st *) file;
+		char * dim_name;
+		AV * dim_labels_av;
+		char ** dim_labels;
+		hsize_t count, rank, index;
+		int coord_index, coord_count;
+	CODE:
+		// Defensive coding:
+		if (file_st == NULL) {
+			puts("Cannot write into null file handle");
+			exit(1);
+		}
+
+		dim_name = SvPV_nolen(dim_name_sv);
+
+		// Dereference array ref
+		dim_labels_av = (AV *) SvRV(dim_labels_sv);
+		count = av_len(dim_labels_av) + 1;
+		dim_labels = calloc(count, sizeof(char *));
+
+		// Go through data
+		for (index = 0; index < count; index++) {
+			// Extract datapoint hash ref
+			SV ** dim_label_sv = av_fetch(dim_labels_av, index, 0);
+			dim_labels[index] = SvPV_nolen(*dim_label_sv);
+		}
+
+		// Store into file
+		store_dim_labels(file_st->file, dim_name, count, dim_labels);
+
+		// Clean up data
+		free(dim_labels);
 
 SV *
 hdf5_get_dim_labels(file)

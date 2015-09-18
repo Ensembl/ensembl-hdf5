@@ -28,7 +28,10 @@ use File::Temp qw/tempfile/;
 
 my ($fh, $filename) = tempfile();
 print "Creating file\n";
-my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor(-FILENAME => $filename, -LABELS => {gene => ['A','B'], snp => ['rs1','rs2']}, -DBNAME => ':memory:');
+my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor(-FILENAME => $filename, -SIZES => {gene => 2, snp => 2}, -LABEL_LENGTHS => {gene => 1, snp => 3}, -DBNAME => ':memory:');
+$aa->store_dim_labels('gene', ['A', 'B']);
+$aa->store_dim_labels('snp', ['rs1']);
+$aa->store_dim_labels('snp', ['rs2']);
 
 my $dim_labels = Bio::EnsEMBL::HDF5::get_dim_labels($aa->{hdf5});
 

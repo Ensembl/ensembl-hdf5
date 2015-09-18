@@ -303,7 +303,7 @@ static void set_file_core_rank(hid_t file, hsize_t core_rank) {
 }
 
 hsize_t get_file_core_rank(hid_t file) {
-	hsize_t core_rank;
+	hsize_t core_rank = 1;
 	hid_t attr = H5Aopen_by_name(file, "/matrix", "Core dimensions", H5P_DEFAULT, H5P_DEFAULT);
 	H5Aread(attr, H5T_NATIVE_INT, &core_rank);
 	H5Aclose(attr);

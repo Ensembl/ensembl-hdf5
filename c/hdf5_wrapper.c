@@ -57,6 +57,8 @@ char * get_string_in_array(StringArray * sarray, hsize_t index) {
 }
 
 void destroy_string_array(StringArray * sarray) {
+	if (DEBUG)
+		printf(">>>>>>>>>>>>>>> DESTROYNG STRING ARRAY %p\n", sarray);
 	free(sarray->array);
 	free(sarray);
 }
@@ -206,9 +208,12 @@ static void store_dim_names(hid_t file, hsize_t rank, char ** strings) {
 }
 
 StringArray * get_dim_names(hid_t file) {
+	if (DEBUG) {
+		printf(">>>>>>>>>>>>>>> READING DIM NAMES IN FILE %i\n", file);
+	}
 	StringArray * sa = get_string_array(file, "/dim_names");
 	if (DEBUG) {
-		printf("Reading dim names\n");
+		printf("Reading %lli dim names\n", sa->count);
 		int i;
 		for (i = 0; i < sa->count; i++)
 			printf("%i => %s\n", i, get_string_in_array(sa, i));
@@ -761,6 +766,19 @@ static int cmp_dims(const void * a, const void * b) {
 
 hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * dim_sizes, hsize_t * dim_label_lengths, hsize_t * chunk_sizes) {
 	hsize_t dim;
+	if (DEBUG) {
+		printf(">>>>>>>>>>>>>>> CREATING FILE %s WITH RANK %lli:\n", filename, rank);
+		printf("index\tname\tsize\tmax_lth\tchunk_size\n");
+		for (dim = 0; dim < rank; dim++) {
+			printf("%lli\t%s\t%lli\t%lli\t", dim, dim_names[dim], dim_sizes[dim], dim_label_lengths[dim]);
+			if (chunk_sizes)
+				printf("%lli\n", chunk_sizes[dim]);
+			else
+				printf("NA\n");
+		}
+	}
+
+	hsize_t core_rank = 0;
 	Dimension * dims = calloc(rank, sizeof(Dimension));
 
 	if (!chunk_sizes) {
@@ -820,18 +838,36 @@ void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** str
 }
 
 void store_values(hid_t file, hsize_t count, hsize_t ** coords, double * values) {
-	if (DEBUG)
-		printf("Storing %lli datapoints\n", count);
+	if (DEBUG) {
+		printf(">>>>>>>>>>>>>>> STORING %lli DATAPOINTS\n", count);
+		hsize_t index;
+		hsize_t rank = get_file_rank(file);
+		for (index = 0; index < count; index++) {
+			int dim;
+			for (dim = 0; dim < rank; dim++) 
+				printf("\t%i = %lli", dim, coords[index][dim]);
+			printf("\tvalue = %lf\n", values[index]);
+		}
+	}
 	store_values_in_matrix(file, count, coords, values);
 	set_boundaries(file, count, coords);
 }
 
 hid_t open_file(char * filename) {
+	if (DEBUG)
+		printf(">>>>>>>>>>>>>>> OPENING FILE %s\n", filename);
 	return H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
 }
 
 StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * constraints) {
 	hsize_t rank = get_file_rank(file);
+	if (DEBUG) {
+		printf(">>>>>>>>>>>>>>> FETCHING STRING VALUES FROM FILE %i:\n", file);
+		hid_t dim;
+		for (dim = 0; dim < rank; dim++)
+			if (set_dims[dim])
+				printf("%i = %lli\n", dim, constraints[dim]);
+	}
 	hsize_t * offset = calloc(rank, sizeof(hsize_t));
 	hsize_t * width = calloc(rank, sizeof(hsize_t));
 
@@ -848,14 +884,6 @@ StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * c
 
 	double * array = fetch_values(file, offset, width);
 
-	if (DEBUG) {
-		hid_t dim;
-		printf("YAbout to explore a field of (");
-		for (dim = 0; dim < rank; dim++)
-			printf("%llix", width[dim]);
-		puts(") values;");
-	}
-
 	ResultTable * table = unroll_matrix(array, rank, offset, width, set_dims);
 	if (DEBUG) 
 		printf("Found %lli values\n", table->rows);
@@ -868,6 +896,8 @@ StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * c
 } 
 
 void destroy_string_result_table(StringResultTable * table) {
+	if (DEBUG)
+		printf(">>>>>>>>>>>>>>> DESTROY STRING RESULT TABLE %p\n", table);
 	hsize_t row;
 	for (row = 0; row < table->rows; row++)
 		free(table->coords[row]);
@@ -881,6 +911,8 @@ void destroy_string_result_table(StringResultTable * table) {
 }
 
 void close_file(hid_t file) {
+	if (DEBUG)
+		printf(">>>>>>>>>>>>>>> CLOSING FILE %i\n", file);
 	H5Fclose(file);
 }
 

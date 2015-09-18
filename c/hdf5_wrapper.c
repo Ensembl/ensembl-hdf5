@@ -271,7 +271,9 @@ StringArray * get_all_dim_labels(hid_t file, hsize_t dim) {
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t group = H5Gopen(file, "/dim_labels", H5P_DEFAULT);
-	return get_string_array(group, buf);
+	StringArray * res = get_string_array(group, buf);
+	H5Gclose(group);
+	return res;
 }
 
 ////////////////////////////////////////////////////////

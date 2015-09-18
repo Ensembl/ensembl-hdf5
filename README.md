@@ -67,13 +67,39 @@ Creating a new database
 -----------------------
 
 ```
-my $dim_labels = {
+my %dim_labels = (
   gene => ['A', 'B'],
   snp => ['rs1', 'rs2']
-};
-my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor(-FILENAME => $filename, -LABELS => $dim_labels);
+);
+
+# Compute the number of labels for each dimension
+my $dim_sizes = {
+  gene => scalar @{$dim_labels{gene}},
+  snp => scalar @{$dim_labels{snp}}
+}
+
+# Compute the maximum label length for each dimension
+my $dim_label_lengths = {
+  gene => max map length @{$dim_labels{gene}},
+  snp => max map length @{$dim_labels{snp}}
+}
+
+# Create the basic file
+my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor(
+  -FILENAME => $filename, 
+  -SIZES => $dim_sizes,
+  -LABEL_LENGTHS => $dim_label_lengths
+);
+
+# Load the labels
+$as->store_dim_labels('gene', $dim_labels{gene});
+$as->store_dim_labels('snp', ['rs1']);
+$as->store_dim_labels('snp', ['rs2']);
+
 $aa->store($original_data);
 ```
+
+Note how in this example the labels for the 'snp' dimension are added in multiple steps. You can do this for any dimension. This is conveninent if there are so many labels that a maintaining a list in memory would be problematic
 
 Querying a database
 -------------------

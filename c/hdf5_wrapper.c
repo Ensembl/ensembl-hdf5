@@ -18,7 +18,7 @@
 #include "hdf5_wrapper.h"
 
 static int BIG_DIM_LENGTH = 1000;
-static bool DEBUG = false;
+static int DEBUG = false;
 
 ////////////////////////////////////////////////////////
 // Generic array functions
@@ -68,7 +68,7 @@ void destroy_string_array(StringArray * sarray) {
 ////////////////////////////////////////////////////////
 
 static hsize_t max_string_length(char ** strings, hsize_t count) {
-	hsize_t index, max;
+	hsize_t index, max = 0;
 
 	for (index = 0; index < count; index++) {
 		hsize_t length = strlen(strings[index]);
@@ -112,28 +112,34 @@ static void create_string_array_table(hid_t file, char * dataset_name, hsize_t c
 static void store_string_array(hid_t file, char * dataset_name, hsize_t count, char ** strings) {
 	if (DEBUG) {
 		printf("Writing in %lli names into dataset %s of file %i:\n", count, dataset_name, file);
-		int i;
-		for (i = 0; i < count; i++)
-			printf("%i:\t%s\n", i, strings[i]);
+		if (DEBUG > 1) {
+			int i;
+			for (i = 0; i < count; i++)
+				printf("%i:\t%s\n", i, strings[i]);
+		}
 	}
 	hid_t dataset = H5Dopen(file, dataset_name, H5P_DEFAULT);
 	hsize_t max_length = max_string_length(strings, count);
 
 	hid_t dataspace = H5Dget_space(dataset);
 
+	// Read last offset on that table
+	hsize_t total_count;
+	hid_t attr = H5Aopen(dataset, "count", H5P_DEFAULT);
+	H5Aread(attr, H5T_NATIVE_HSIZE, &total_count);
+
 	// Checking that max_length fits in dataspace
 	hsize_t shape[2];
 	H5Sget_simple_extent_dims(dataspace, shape, NULL);
+	if (shape[0] < total_count + count) {
+		printf("Cannot store %lli more strings in a table allocated for %lli and containing already %lli\n", count, shape[0], total_count);
+		abort();
+	}
 	if (shape[1] < max_length + 1) {
 		printf("This table was not designed to store strings of length %lli, rather %lli\n", max_length, shape[1]);
 		abort();
 	}
 	StringArray * sarray = normalize_strings(strings, count, shape[1]-1);
-
-	// Read last offset on that table
-	hsize_t total_count;
-	hid_t attr = H5Aopen(dataset, "count", H5P_DEFAULT);
-	H5Aread(attr, H5T_NATIVE_HSIZE, &total_count);
 
 	// Write into table
 	hsize_t offset[2];
@@ -216,9 +222,11 @@ StringArray * get_dim_names(hid_t file) {
 	StringArray * sa = get_string_array(file, "/dim_names");
 	if (DEBUG) {
 		printf("Reading %lli dim names\n", sa->count);
-		int i;
-		for (i = 0; i < sa->count; i++)
-			printf("%i => %s\n", i, get_string_in_array(sa, i));
+		if (DEBUG > 1) {
+			int i;
+			for (i = 0; i < sa->count; i++)
+				printf("%i => %s\n", i, get_string_in_array(sa, i));
+		}
 	}
 	return sa;
 }
@@ -827,8 +835,10 @@ void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** str
 	hsize_t dim;
 	if (DEBUG) {
 		printf(">>>>>>>>>>>>>>> STORE %lli DIM LABEL(S) FOR DIM %s IN FILE %i:\n", dim_size, dim_name, file);
-		for (dim = 0; dim < dim_size; dim++)
-			printf("%lli:\t%s\n", dim, strings[dim]);
+		if (DEBUG > 1) {
+			for (dim = 0; dim < dim_size; dim++)
+				printf("%lli:\t%s\n", dim, strings[dim]);
+		}
 	}
 	hsize_t rank = get_file_rank(file);
 	fflush(stdout);
@@ -848,13 +858,15 @@ void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** str
 void store_values(hid_t file, hsize_t count, hsize_t ** coords, double * values) {
 	if (DEBUG) {
 		printf(">>>>>>>>>>>>>>> STORING %lli DATAPOINTS\n", count);
+		if (DEBUG > 1) {
 		hsize_t index;
 		hsize_t rank = get_file_rank(file);
 		for (index = 0; index < count; index++) {
-			int dim;
-			for (dim = 0; dim < rank; dim++) 
-				printf("\t%i = %lli", dim, coords[index][dim]);
-			printf("\tvalue = %lf\n", values[index]);
+				int dim;
+				for (dim = 0; dim < rank; dim++) 
+					printf("\t%i = %lli", dim, coords[index][dim]);
+				printf("\tvalue = %lf\n", values[index]);
+			}
 		}
 	}
 	store_values_in_matrix(file, count, coords, values);
@@ -932,6 +944,6 @@ void set_big_dim_length(int length) {
 	BIG_DIM_LENGTH = length;
 }
 
-void set_hdf5_log(bool value) {
+void set_hdf5_log(int value) {
 	DEBUG = value;
 }

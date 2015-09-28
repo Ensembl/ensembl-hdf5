@@ -152,10 +152,6 @@ static void store_string_array(hid_t file, char * dataset_name, hsize_t count, c
 	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
 	H5Dwrite(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, sarray->array);
 
-	char * string = calloc(shape[0] * shape[1], sizeof(char));
-	H5Dread(dataset, H5T_NATIVE_CHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, string);
-	free(string);
-
 	// Store new offset
 	total_count += count;
         H5Awrite(attr, H5T_NATIVE_HSIZE, &total_count);

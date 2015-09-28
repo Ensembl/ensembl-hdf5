@@ -60,7 +60,6 @@ sub new {
   my $self = {
     hdf5 => undef,
     sqlite3 => Bio::EnsEMBL::DBSQL::DBConnection->new(-DBNAME => $dbname, -DRIVER => 'SQLite'),
-    dim_labels => undef,
     st_handles => {}
   };
 
@@ -71,11 +70,28 @@ sub new {
       die("Cannot create a new HDF5 store without dimensional label info");
     }
 
+    foreach my $key (keys %$dim_sizes) {
+      if (defined $dim_sizes->{$key} && $dim_sizes->{$key} > 0) {
+        defined $dim_label_lengths->{$key} || die("Dimension label length not defined for dimension $key\n");
+      } else {
+        delete $dim_sizes->{$key};
+      }
+    }
+
+    foreach my $key (keys %$dim_label_lengths) {
+      if (defined $dim_label_lengths->{$key}) {
+        defined $dim_sizes->{$key} && $dim_sizes->{$key} > 0 || die("Dimension size not defined for dimension $key\n");
+      } else {
+	delete $dim_label_lengths->{$key};
+      }
+    }
+
     if (-e $filename && -z $filename) {
       unlink $filename;
     }
 
     Bio::EnsEMBL::HDF5::create($filename, $dim_sizes, $dim_label_lengths);
+
     my @dim_names = keys %$dim_sizes;
     $self->_create_sqlite3_file($filename, \@dim_names);
   }
@@ -112,7 +128,7 @@ sub _create_sqlite3_table {
   my $sql = "
   CREATE TABLE $dim_name (
     hdf5_index	INTEGER PRIMARY KEY AUTOINCREMENT,
-    external_id	INTEGER
+    external_id	VARCHAR(100) 
   )
   ";
   $self->{sqlite3}->do($sql);
@@ -142,8 +158,27 @@ sub store_dim_labels {
 sub _insert_into_sqlite3_table {
   my ($self, $dim_name, $dim_labels) = @_;
   my $sql2 = "INSERT INTO $dim_name (external_id) VALUES (?)";
+  $self->{sqlite3}->db_handle->begin_work;
   my $sth = $self->{sqlite3}->prepare($sql2);
   $sth->execute_array({}, $dim_labels);
+  $self->{sqlite3}->db_handle->commit;
+}
+
+=head2 index_tables
+
+  Create indexes of SQLite3 tables
+
+=cut
+
+sub index_tables {
+  my ($self) = @_;
+  my $sth = $self->{sqlite3}->db_handle->table_info('%','%','%','TABLE');
+  while (my @row = $sth->fetchrow_array) {
+    my $table = $row[2];
+    if (! ($table eq 'sqlite_sequence')) {
+      $self->{sqlite3}->do("CREATE INDEX idx_$table ON $table (external_id)");
+    }
+  }
 }
 
 =head2 _get_numerical_value

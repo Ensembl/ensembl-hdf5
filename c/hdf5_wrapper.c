@@ -769,6 +769,7 @@ typedef struct dim_st {
 	char * name;
 	hsize_t size;
 	hsize_t original;
+	hsize_t label_length;
 } Dimension;
 
 static int cmp_dims(const void * a, const void * b) {
@@ -797,6 +798,23 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 	hsize_t core_rank = 0;
 	Dimension * dims = calloc(rank, sizeof(Dimension));
 
+	for (dim = 0; dim<rank; dim++) {
+		if (dim_sizes[dim] > BIG_DIM_LENGTH)
+			core_rank++;
+		dims[dim].name = dim_names[dim];
+		dims[dim].size = dim_sizes[dim];
+		dims[dim].label_length = dim_label_lengths[dim];
+		dims[dim].original = dim;
+	}
+	
+	qsort(dims, rank, sizeof(Dimension), &cmp_dims);
+
+	for (dim = 0; dim<rank; dim++) {
+		dim_names[dim] = dims[dim].name;
+		dim_sizes[dim] = dims[dim].size;
+		dim_label_lengths[dim] = dims[dim].label_length;
+	}
+	
 	if (!chunk_sizes) {
 		chunk_sizes = calloc(rank, sizeof(hsize_t));
 		for (dim = 0; dim<rank; dim++) {
@@ -807,21 +825,6 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 		}
 	}
 
-	for (dim = 0; dim<rank; dim++) {
-		if (dim_sizes[dim] > BIG_DIM_LENGTH)
-			core_rank++;
-		dims[dim].name = dim_names[dim];
-		dims[dim].size = dim_sizes[dim];
-		dims[dim].original = dim;
-	}
-	
-	qsort(dims, rank, sizeof(Dimension), &cmp_dims);
-
-	for (dim = 0; dim<rank; dim++) {
-		dim_names[dim] = dims[dim].name;
-		dim_sizes[dim] = dims[dim].size;
-	}
-	
 	hid_t file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
 	store_dim_names(file, rank, dim_names);
 	create_all_dim_label_tables(file, rank, dim_sizes, dim_label_lengths);
@@ -842,6 +845,7 @@ void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** str
 	}
 	hsize_t rank = get_file_rank(file);
 	fflush(stdout);
+	// TODO This could be replaced by a HDF5 attribute
 	StringArray * dim_names = get_dim_names(file);
 	for (dim = 0; dim < rank; dim++) {
 		if (!strcmp(dim_name, get_string_in_array(dim_names, dim))) {

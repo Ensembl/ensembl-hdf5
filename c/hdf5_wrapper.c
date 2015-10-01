@@ -529,7 +529,7 @@ static void compute_boundaries_row_dim_2(hsize_t * boundaries, hsize_t rank, hsi
 	if (DEBUG > 1)
 		printf("Boundaries on dim%lli:%lli-%lli\n", dim2, boundaries[position], boundaries[position+1]);
 
-	if (coords[dim2] < boundaries[position] || boundaries[position] < 0)
+	if (coords[dim2] < boundaries[position] || boundaries[position] == 0)
 		boundaries[position] = coords[dim2];
 
 	if (coords[dim2] + 1 > boundaries[position + 1])

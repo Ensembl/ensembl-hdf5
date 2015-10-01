@@ -469,13 +469,13 @@ static void create_boundaries_group(hid_t group, hsize_t core_rank, hsize_t dim,
 	VERIFY(dataspace);
 
 	hid_t params = H5Pcreate(H5P_DATASET_CREATE);
-	long value = -1;
 	VERIFY(params);
+	hsize_t value = 0;
 	VERIFY(H5Pset_fill_value(params, H5T_NATIVE_HSIZE, &value));
 
 	char buf[5];
 	sprintf(buf, "%llu", dim);
-	hid_t dataset = H5Dcreate(group, buf, H5T_NATIVE_LONG, dataspace, H5P_DEFAULT, params, H5P_DEFAULT);
+	hid_t dataset = H5Dcreate(group, buf, H5T_NATIVE_HSIZE, dataspace, H5P_DEFAULT, params, H5P_DEFAULT);
 	VERIFY(dataset);
 	VERIFY(H5Dclose(dataset));
 	VERIFY(H5Sclose(dataspace));
@@ -490,7 +490,7 @@ static void create_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, hsize
 	VERIFY(H5Gclose(group));
 }
 
-static long * initialise_boundary_array_dim(hid_t file, hsize_t dim) {
+static hsize_t * initialise_boundary_array_dim(hid_t file, hsize_t dim) {
 	char buf[5];
 	hsize_t shape[3];
 	hid_t group = H5Gopen(file, "/boundaries", H5P_DEFAULT);
@@ -512,15 +512,15 @@ static long * initialise_boundary_array_dim(hid_t file, hsize_t dim) {
 	return res;
 }
 
-static long ** initialise_boundary_array(hid_t file, hsize_t core_rank) {
-	long ** res = calloc(core_rank, sizeof(long *));
+static hsize_t ** initialise_boundary_array(hid_t file, hsize_t rank, hsize_t core_rank) {
+	hsize_t ** res = calloc(rank, sizeof(hsize_t *));
 	hsize_t dim;
 	for (dim = 0; dim < core_rank; dim++)
 		res[dim] = initialise_boundary_array_dim(file, dim);
 	return res;
 }
 
-static void compute_boundaries_row_dim_2(long * boundaries, hsize_t rank, hsize_t core_rank, hsize_t * coords, hsize_t dim, hsize_t dim2) {
+static void compute_boundaries_row_dim_2(hsize_t * boundaries, hsize_t rank, hsize_t core_rank, hsize_t * coords, hsize_t dim, hsize_t dim2) {
 	if (DEBUG > 1)
 		printf("Entering position at (dim%lli:%lli;dim%lli:%lli)\n", dim, coords[dim], dim2, coords[dim2]);
 	hsize_t proj_dim2 = dim2 > dim? dim2 - 1 + core_rank - rank: dim + core_rank - rank;
@@ -539,7 +539,7 @@ static void compute_boundaries_row_dim_2(long * boundaries, hsize_t rank, hsize_
 		printf("New boundaries: dim%lli == %lli => dim%lli in [%lli,%lli] (%lli-%lli)\n", dim, coords[dim], dim2, boundaries[position], boundaries[position+1], position, position+1);
 }
 
-static void compute_boundaries_row(long ** boundaries, hsize_t rank, hsize_t core_rank, hsize_t * coords) {
+static void compute_boundaries_row(hsize_t ** boundaries, hsize_t rank, hsize_t core_rank, hsize_t * coords) {
 	hsize_t dim, dim2;
 
 	for (dim = rank - core_rank; dim < rank; dim++) {
@@ -550,14 +550,14 @@ static void compute_boundaries_row(long ** boundaries, hsize_t rank, hsize_t cor
 	}
 }
 
-static void compute_boundaries(long ** boundaries, hsize_t rank, hsize_t core_rank, hsize_t count, hsize_t ** coords) {
+static void compute_boundaries(hsize_t ** boundaries, hsize_t rank, hsize_t core_rank, hsize_t count, hsize_t ** coords) {
 	hsize_t row;
 
 	for (row = 0; row < count; row++)
 		compute_boundaries_row(boundaries, rank, core_rank, coords[row]);
 }
 
-static void store_boundaries_group(hid_t group, hsize_t dim, long * boundaries) {
+static void store_boundaries_group(hid_t group, hsize_t dim, hsize_t * boundaries) {
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t dataset = H5Dopen(group, buf, H5P_DEFAULT);
@@ -571,7 +571,7 @@ static void store_boundaries_group(hid_t group, hsize_t dim, long * boundaries) 
 	VERIFY(H5Dclose(dataset));
 }
 
-static void store_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, long ** boundaries) {
+static void store_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, hsize_t ** boundaries) {
 	int dim;
 	hid_t group = H5Gopen(file, "/boundaries", H5P_DEFAULT);
 	VERIFY(group);
@@ -580,7 +580,7 @@ static void store_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, long *
 	VERIFY(H5Gclose(group));
 }
 
-static void free_boundary_array(long ** array, hsize_t core_rank) {
+static void free_boundary_array(hsize_t ** array, hsize_t core_rank) {
 	hsize_t dim;
 	for (dim = 0; dim < core_rank; dim++)
 		free(array[dim]);
@@ -592,7 +592,7 @@ static void set_boundaries(hid_t file, hsize_t count, hsize_t ** coords) {
 		printf("SETTING BOUNDARIES\n");
 	hsize_t rank = get_file_rank(file);
 	hsize_t core_rank = get_file_core_rank(file);
-	long ** boundaries = initialise_boundary_array(file, core_rank);
+	hsize_t ** boundaries = initialise_boundary_array(file, rank, core_rank);
 	if (DEBUG)
 		printf("COMPUTING BOUNDARIES\n");
 	compute_boundaries(boundaries, rank, core_rank, count, coords);
@@ -606,7 +606,7 @@ static void set_boundaries(hid_t file, hsize_t count, hsize_t ** coords) {
 // Extracting boundary information 
 ////////////////////////////////////////////////////////
 
-static long * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, hsize_t dim, hsize_t constraint) {
+static hsize_t * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, hsize_t dim, hsize_t constraint) {
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t dataset = H5Dopen(group, buf, H5P_DEFAULT);
@@ -655,8 +655,8 @@ static long * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, 
 	return res;
 }
 
-static long ** open_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, bool * set_dims, hsize_t * constraints) {
-	long ** boundaries = calloc(core_rank, sizeof(long *));
+static hsize_t ** open_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, bool * set_dims, hsize_t * constraints) {
+	hsize_t ** boundaries = calloc(rank, sizeof(hsize_t *));
 	hid_t group = H5Gopen(file, "boundaries", H5P_DEFAULT);
 	VERIFY(group);
 	hsize_t dim;
@@ -667,7 +667,7 @@ static long ** open_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, bool
 	return boundaries;
 }
 
-static hsize_t lower_search_bound(hsize_t rank, hsize_t core_rank, hsize_t dim, long ** boundaries) {
+static hsize_t lower_search_bound(hsize_t rank, hsize_t core_rank, hsize_t dim, hsize_t ** boundaries) {
 	hsize_t dim2;
 	hsize_t offset = 0;
 	for (dim2 = rank - core_rank; dim2 < rank; dim2++) {
@@ -681,7 +681,7 @@ static hsize_t lower_search_bound(hsize_t rank, hsize_t core_rank, hsize_t dim, 
 	return offset;
 }
 
-static hsize_t upper_search_bound(hsize_t rank, hsize_t core_rank, hsize_t dim, hsize_t dim_size, long ** boundaries) {
+static hsize_t upper_search_bound(hsize_t rank, hsize_t core_rank, hsize_t dim, hsize_t dim_size, hsize_t ** boundaries) {
 	hsize_t dim2;
 	hsize_t upper = dim_size;
 	for (dim2 = rank - core_rank; dim2 < rank; dim2++) {
@@ -701,11 +701,11 @@ static bool set_query_parameters(hid_t file, hsize_t rank, bool * set_dims, hsiz
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
 	VERIFY(dataset);
 	hid_t dataspace = H5Dget_space(dataset);
-	long ** boundaries = open_boundaries(file, rank, core_rank, set_dims, constraints);
 	VERIFY(dataspace);
 	VERIFY(H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL));
 	VERIFY(H5Sclose(dataspace));
 	VERIFY(H5Dclose(dataset));
+	hsize_t ** boundaries = open_boundaries(file, rank, core_rank, set_dims, constraints);
 
 	hsize_t dim;
 	if (DEBUG)

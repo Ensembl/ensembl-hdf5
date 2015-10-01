@@ -1025,7 +1025,7 @@ void store_values(hid_t file, hsize_t count, hsize_t ** coords, double * values)
 hid_t open_file(char * filename) {
 	if (DEBUG)
 		printf(">>>>>>>>>>>>>>> OPENING FILE %s\n", filename);
-	return H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+	return H5Fopen(filename, H5F_ACC_RDWR, H5P_DEFAULT);
 }
 
 StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * constraints) {

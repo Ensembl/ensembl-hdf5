@@ -305,4 +305,15 @@ sub close {
   $self->{sqlite3} = undef;
 }
 
+=head2 DESTROY
+
+=cut
+
+sub DESTROY {
+  my ($self) = @_;
+  if (defined $self->{hdf5}) {
+    $self->close;
+  }
+}
+
 1;

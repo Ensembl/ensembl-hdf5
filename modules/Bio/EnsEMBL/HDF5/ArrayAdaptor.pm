@@ -144,8 +144,12 @@ sub _create_sqlite3_table {
 
 sub store_dim_labels {
   my ($self, $dim_name, $dim_labels) = @_;
+  my $start = time;
   Bio::EnsEMBL::HDF5::store_dim_labels($self->{hdf5}, $dim_name, $dim_labels);
+  print "HDF5 time =\t" . (time - $start). "\n";
+  $start = time;
   $self->_insert_into_sqlite3_table($dim_name, $dim_labels);
+  print "SQLite3 time =\t" . (time - $start) . "\n";
 }
 
 =head2 _insert_into_sqlite3_table
@@ -229,7 +233,10 @@ sub _convert_coords {
 
 sub store {
   my ($self, $data_points) = @_;
+  print "CONVERTING VALUES\n";
+  my $start = time;
   my @converted_points = map {$self->_convert_coords($_)} @$data_points;
+  print "CONVERTED VALUES ". (time - $start) . "\n";
   Bio::EnsEMBL::HDF5::store($self->{hdf5}, \@converted_points);
 }
 

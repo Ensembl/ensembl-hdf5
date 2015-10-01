@@ -814,7 +814,7 @@ static void unroll_matrix_recursive(double ** reader_ptr, hsize_t rank, hsize_t*
 	} else {
 		for (index = 0; index < width[current_dim]; index++) {
 			unroll_matrix_recursive(reader_ptr, rank, width, table, offset, current_dim + 1, write_index);
-			offset[current_dim+1] = 0;
+			offset[current_dim+1] -= width[current_dim+1];
 			offset[current_dim]++;
 		}
 	}

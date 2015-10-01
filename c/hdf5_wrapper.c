@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "hdf5.h"
 #include "hdf5_wrapper.h"
 
@@ -160,7 +161,10 @@ static void store_string_array(hid_t file, char * dataset_name, hsize_t count, c
 	hid_t memspace = H5Screate_simple(2, width, NULL);
 	VERIFY(memspace);
 	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
+	clock_t start = clock();
 	VERIFY(H5Dwrite(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, sarray->array));
+	if (DEBUG)
+		printf("<<< HDF5 WRITE TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
 
 	// Store new offset
 	total_count += count;
@@ -183,7 +187,10 @@ static StringArray * get_string_array(hid_t file, char * dataset_name) {
 	VERIFY(H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL));
 	VERIFY(H5Sclose(dataspace));
 	StringArray * dim_names = new_string_array(dim_sizes[0], dim_sizes[1]-1);
+	clock_t start = clock();
 	VERIFY(H5Dread(dataset, H5T_NATIVE_CHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, dim_names->array));
+	if (DEBUG)
+		printf("<<< HDF5 READ TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
 	VERIFY(H5Dclose(dataset));
 	return dim_names;
 }
@@ -205,8 +212,29 @@ static StringArray * get_string_subarray(hid_t file, char * dataset_name, hsize_
 	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset2, NULL, width, NULL));
 	hid_t memspace = H5Screate_simple(2, width, NULL);
 	VERIFY(memspace);
+	clock_t start = clock();
+
+	if (DEBUG) {
+		int dim;
+		printf("Reading with offset:");
+		hsize_t * dim_sizes = calloc(2, sizeof(hsize_t));
+		VERIFY(H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL));
+		for(dim = 0; dim < 2; dim++) {
+			printf("\t%lli", offset2[dim]);
+		}
+		printf("\n\tand width:");
+		for(dim = 0; dim < 2; dim++) {
+			printf("\t%lli", width[dim]);
+		}
+		printf("\ninside matrix of size:");
+		for(dim = 0; dim < 2; dim++)
+			printf("\t%lli", dim_sizes[dim]);
+		puts("");
+	}
+
 	VERIFY(H5Dread(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, dim_names->array));
 	if (DEBUG) {
+		printf("<<< HDF5 READ TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
 		int i;
 		for (i = 0; i < dim_names->count; i++)
 			printf("%lli => %s\n", offset + i, get_string_in_array(dim_names, i));
@@ -350,6 +378,12 @@ static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t
 	hid_t cparms = H5Pcreate(H5P_DATASET_CREATE);
 	VERIFY(cparms);
 	VERIFY(H5Pset_chunk(cparms, rank, chunk_sizes));
+	if (DEBUG) {
+		printf("Creating matrix of rank %lli\n", rank);
+		int i;
+		for (i = 0; i < rank; i++)
+			printf("%lli %lli\n", dim_sizes[i], chunk_sizes[i]);
+	}
 	hid_t dataset = H5Dcreate(file, "/matrix", H5T_NATIVE_DOUBLE, dataspace,
 		            H5P_DEFAULT, cparms, H5P_DEFAULT);
 	VERIFY(dataset);
@@ -374,7 +408,10 @@ static void store_values_in_matrix(hid_t file, hsize_t count, hsize_t ** coords,
 		}
 	}
 	VERIFY(H5Sselect_elements(filespace, H5S_SELECT_SET, count, coord));
+	clock_t start = clock();
 	VERIFY(H5Dwrite(dataset, H5T_NATIVE_DOUBLE, memspace, filespace, H5P_DEFAULT, values));
+	if (DEBUG)
+		printf("<<< HDF5 WRITE TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
 	VERIFY(H5Sclose(filespace));
 	VERIFY(H5Sclose(memspace));
 	VERIFY(H5Dclose(dataset));
@@ -386,11 +423,33 @@ static double * fetch_values(hid_t file, hsize_t * offset, hsize_t * width) {
 	VERIFY(dataset);
 	hid_t dataspace = H5Dget_space(dataset);
 	VERIFY(dataspace);
+
+	if (DEBUG) {
+		int dim;
+		printf("Reading with offset:");
+		hsize_t * dim_sizes = calloc(rank, sizeof(hsize_t));
+		VERIFY(H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL));
+		for(dim = 0; dim < rank; dim++) {
+			printf("\t%lli", offset[dim]);
+		}
+		printf("\n\tand width:");
+		for(dim = 0; dim < rank; dim++) {
+			printf("\t%lli", width[dim]);
+		}
+		printf("\ninside matrix of size:");
+		for(dim = 0; dim < rank; dim++)
+			printf("\t%lli", dim_sizes[dim]);
+		puts("");
+	}
+
 	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
 	hid_t memspace = H5Screate_simple(rank, width, NULL);
 	VERIFY(memspace);
+	clock_t start = clock();
 	double * array = alloc_ndim_array(rank, width, H5Tget_size(H5T_NATIVE_DOUBLE));
 	VERIFY(H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, array));
+	if (DEBUG)
+		printf("<<< HDF5 READ TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
 	VERIFY(H5Sclose(dataspace));
 	VERIFY(H5Sclose(memspace));
 	VERIFY(H5Dclose(dataset));
@@ -442,6 +501,8 @@ static long * initialise_boundary_array_dim(hid_t file, hsize_t dim) {
 	hid_t dataspace = H5Dget_space(dataset);
 	VERIFY(dataspace);
 	VERIFY(H5Sget_simple_extent_dims(dataspace, shape, NULL));
+	if (DEBUG)
+		printf("Allocating matrix of dimensions (%lli,%lli,%lli) for dim%lli boundaries\n", shape[0], shape[1], shape[2], dim);
 	hsize_t * res = calloc(volume(3, shape), sizeof(hsize_t));
 	VERIFY(H5Dread(dataset, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, res));
 	printf("DEBUG\n");
@@ -460,13 +521,13 @@ static long ** initialise_boundary_array(hid_t file, hsize_t core_rank) {
 }
 
 static void compute_boundaries_row_dim_2(long * boundaries, hsize_t rank, hsize_t core_rank, hsize_t * coords, hsize_t dim, hsize_t dim2) {
-	if (DEBUG)
+	if (DEBUG > 1)
 		printf("Entering position at (dim%lli:%lli;dim%lli:%lli)\n", dim, coords[dim], dim2, coords[dim2]);
 	hsize_t proj_dim2 = dim2 > dim? dim2 - 1 + core_rank - rank: dim + core_rank - rank;
 	hsize_t position = coords[dim] * (core_rank - 1) * 2 + proj_dim2 * 2;
 
-	if (DEBUG)
-		printf("Boundaries on dim%lli:%li-%li\n", dim2, boundaries[position], boundaries[position+1]);
+	if (DEBUG > 1)
+		printf("Boundaries on dim%lli:%lli-%lli\n", dim2, boundaries[position], boundaries[position+1]);
 
 	if (coords[dim2] < boundaries[position] || boundaries[position] < 0)
 		boundaries[position] = coords[dim2];
@@ -474,8 +535,8 @@ static void compute_boundaries_row_dim_2(long * boundaries, hsize_t rank, hsize_
 	if (coords[dim2] + 1 > boundaries[position + 1])
 		boundaries[position + 1] = coords[dim2] + 1;
 
-	if (DEBUG)
-		printf("New boundaries on dim%lli:%li-%li\n", dim2, boundaries[position], boundaries[position+1]);
+	if (DEBUG > 1)
+		printf("New boundaries: dim%lli == %lli => dim%lli in [%lli,%lli] (%lli-%lli)\n", dim, coords[dim], dim2, boundaries[position], boundaries[position+1], position, position+1);
 }
 
 static void compute_boundaries_row(long ** boundaries, hsize_t rank, hsize_t core_rank, hsize_t * coords) {
@@ -501,7 +562,12 @@ static void store_boundaries_group(hid_t group, hsize_t dim, long * boundaries) 
 	sprintf(buf, "%llu", dim);
 	hid_t dataset = H5Dopen(group, buf, H5P_DEFAULT);
 	VERIFY(dataset);
+	clock_t start = clock();
+	if (DEBUG)
+		printf("Writing into boundary table %s results %lli %lli, %lli %lli\n", buf, boundaries[0], boundaries[1], boundaries[2], boundaries[3]); 
 	VERIFY(H5Dwrite(dataset, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, boundaries));
+	if (DEBUG)
+		printf("<<< HDF5 WRITE TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
 	VERIFY(H5Dclose(dataset));
 }
 
@@ -522,10 +588,16 @@ static void free_boundary_array(long ** array, hsize_t core_rank) {
 }
 
 static void set_boundaries(hid_t file, hsize_t count, hsize_t ** coords) {
+	if (DEBUG)
+		printf("SETTING BOUNDARIES\n");
 	hsize_t rank = get_file_rank(file);
 	hsize_t core_rank = get_file_core_rank(file);
 	long ** boundaries = initialise_boundary_array(file, core_rank);
+	if (DEBUG)
+		printf("COMPUTING BOUNDARIES\n");
 	compute_boundaries(boundaries, rank, core_rank, count, coords);
+	if (DEBUG)
+		printf("STORING BOUNDARIES\n");
 	store_boundaries(file, rank, core_rank, boundaries);
 	free_boundary_array(boundaries, core_rank);
 }
@@ -549,11 +621,34 @@ static long * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, 
 	width[2] = 2;
 	hid_t dataspace = H5Dget_space(dataset);
 	VERIFY(dataspace);
+
+	if (DEBUG) {
+		int dim;
+		printf("Boundaries\n");
+		printf("Reading with offset:");
+		hsize_t * dim_sizes = calloc(3, sizeof(hsize_t));
+		VERIFY(H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL));
+		for(dim = 0; dim < 3; dim++) {
+			printf("\t%lli", offset[dim]);
+		}
+		printf("\n\tand width:");
+		for(dim = 0; dim < 3; dim++) {
+			printf("\t%lli", width[dim]);
+		}
+		printf("\ninside matrix of size:");
+		for(dim = 0; dim < 3; dim++)
+			printf("\t%lli", dim_sizes[dim]);
+		puts("");
+	}
+
 	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
 	hsize_t * res = alloc_ndim_array(3, width, H5Tget_size(H5T_NATIVE_HSIZE));
 	hid_t memspace = H5Screate_simple(3, width, NULL);
 	VERIFY(memspace);
+	clock_t start = clock();
 	VERIFY(H5Dread(dataset, H5T_NATIVE_HSIZE, memspace, dataspace, H5P_DEFAULT, res));
+	if (DEBUG)
+		printf("<<< HDF5 READ TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
 	VERIFY(H5Sclose(dataspace));
 	VERIFY(H5Sclose(memspace));
 	VERIFY(H5Dclose(dataset));
@@ -769,7 +864,7 @@ static char ** stringify_dim_names(hid_t file, ResultTable * table, StringArray 
 	for (dim = 0; dim < table->columns; dim++) {
 		res[dim] = get_string_in_array(dim_names, table->dims[dim]);
 		if (DEBUG)
-			printf("Converting dim %lli => %s\n", table->dims[dim], res[dim]);
+			printf("Converting dim %lli name => %s\n", table->dims[dim], res[dim]);
 	}
 	
 	if (res[0] == '\0')

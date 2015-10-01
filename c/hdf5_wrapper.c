@@ -486,7 +486,7 @@ static void create_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, hsize
 	hid_t group = H5Gcreate(file, "/boundaries", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 	VERIFY(group);
 	for (dim = rank - core_rank; dim < rank; dim++)
-		create_boundaries_group(group, core_rank, dim, dim_sizes[dim - rank + core_rank]);
+		create_boundaries_group(group, core_rank, dim, dim_sizes[dim]);
 	VERIFY(H5Gclose(group));
 }
 
@@ -515,7 +515,7 @@ static hsize_t * initialise_boundary_array_dim(hid_t file, hsize_t dim) {
 static hsize_t ** initialise_boundary_array(hid_t file, hsize_t rank, hsize_t core_rank) {
 	hsize_t ** res = calloc(rank, sizeof(hsize_t *));
 	hsize_t dim;
-	for (dim = 0; dim < core_rank; dim++)
+	for (dim = rank - core_rank; dim < rank; dim++)
 		res[dim] = initialise_boundary_array_dim(file, dim);
 	return res;
 }
@@ -544,8 +544,8 @@ static void compute_boundaries_row(hsize_t ** boundaries, hsize_t rank, hsize_t 
 
 	for (dim = rank - core_rank; dim < rank; dim++) {
 		for (dim2 = rank - core_rank; dim2 < dim; dim2++) {
-			compute_boundaries_row_dim_2(boundaries[dim - rank + core_rank], rank, core_rank, coords, dim, dim2);
-			compute_boundaries_row_dim_2(boundaries[dim2 - rank + core_rank], rank, core_rank, coords, dim2, dim);
+			compute_boundaries_row_dim_2(boundaries[dim], rank, core_rank, coords, dim, dim2);
+			compute_boundaries_row_dim_2(boundaries[dim2], rank, core_rank, coords, dim2, dim);
 		}
 	}
 }
@@ -575,15 +575,16 @@ static void store_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, hsize_
 	int dim;
 	hid_t group = H5Gopen(file, "/boundaries", H5P_DEFAULT);
 	VERIFY(group);
-	for (dim = 0; dim < core_rank; dim++)
+	for (dim = rank - core_rank; dim < rank; dim++)
 		store_boundaries_group(group, dim, boundaries[dim]);
 	VERIFY(H5Gclose(group));
 }
 
-static void free_boundary_array(hsize_t ** array, hsize_t core_rank) {
+static void free_boundary_array(hsize_t ** array, hsize_t rank) {
 	hsize_t dim;
-	for (dim = 0; dim < core_rank; dim++)
-		free(array[dim]);
+	for (dim = 0; dim < rank; dim++)
+		if (array[dim])
+			free(array[dim]);
 	free(array);
 }
 
@@ -599,7 +600,7 @@ static void set_boundaries(hid_t file, hsize_t count, hsize_t ** coords) {
 	if (DEBUG)
 		printf("STORING BOUNDARIES\n");
 	store_boundaries(file, rank, core_rank, boundaries);
-	free_boundary_array(boundaries, core_rank);
+	free_boundary_array(boundaries, rank);
 }
 
 ////////////////////////////////////////////////////////

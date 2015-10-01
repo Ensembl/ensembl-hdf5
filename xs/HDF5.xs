@@ -311,7 +311,7 @@ hdf5_fetch(file, constraints_hv)
 			// Create hash ref from row of C-style StringResultTable object
 			row_hv = newHV();
 			for (dim = 0; dim < table->columns; dim++) {
-				hv_store(row_hv, table->dims[dim], file_st->dim_name_lengths[dim], newSVpv(table->coords[index][dim], 0), 0);
+				hv_store(row_hv, table->dims[dim], file_st->dim_name_lengths[table->dim_indices[dim]], newSVpv(table->coords[index][dim], 0), 0);
 			}
 			hv_store(row_hv, "value", 5, newSVnv(table->values[index]), 0);
 

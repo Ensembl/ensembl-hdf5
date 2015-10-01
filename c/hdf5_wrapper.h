@@ -37,6 +37,7 @@ typedef struct result_table_st {
 
 typedef struct string_result_table_st {
 	hsize_t rows, columns;
+	hsize_t * dim_indices;
 	char ** dims;
 	char *** coords;
 	double * values;

@@ -703,7 +703,6 @@ static void destroy_result_table(ResultTable * table) {
 	for (row = 0; row < table->rows; row++)
 		free(table->coords[row]);
 	free(table->coords);
-	free(table->dims);
 	free(table);
 }
 
@@ -747,6 +746,7 @@ static char *** stringify_coords(hid_t file, ResultTable * table, hsize_t * offs
 
 static StringResultTable * stringify_result_table(hid_t file, hsize_t * offset, hsize_t * width, ResultTable * table) {
 	StringResultTable * res = calloc(1, sizeof(StringResultTable));	
+	res->dim_indices = table->dims;
 	res->rows = table->rows;
 	res->columns = table->columns;
 	res->dim_names = get_dim_names(file);
@@ -926,6 +926,7 @@ void destroy_string_result_table(StringResultTable * table) {
 		destroy_string_array(table->dim_labels[column]);
 	destroy_string_array(table->dim_names);
 	free(table->dims);
+	free(table->dim_indices);
 	free(table->values);
 	free(table);
 }

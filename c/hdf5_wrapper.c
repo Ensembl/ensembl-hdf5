@@ -311,7 +311,7 @@ static StringArray ** get_table_dims_labels(hid_t file, ResultTable * table, hsi
 	hid_t group = H5Gopen(file, "/dim_labels", H5P_DEFAULT);
 	VERIFY(group);
 	for (dim = 0; dim < table->columns; dim++)
-		dim_labels[dim] = get_dim_labels(group, dim, offset[table->dims[dim]], width[table->dims[dim]]);
+		dim_labels[dim] = get_dim_labels(group, table->dims[dim], offset[table->dims[dim]], width[table->dims[dim]]);
 	VERIFY(H5Gclose(group));
 
 	return dim_labels;

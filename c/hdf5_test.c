@@ -27,20 +27,24 @@ int main(int argc, char ** argv) {
 	hsize_t dim_label_lengths[] = {3, 1};
 
 	printf("Resetting big dim cutoff\n");
-	//set_big_dim_length(0);
-	set_hdf5_log(true);
+	set_big_dim_length(1);
+	set_hdf5_log(2);
 
 	printf("Creating files\n");
 	hid_t file = create_file("TEST.hd5", rank, dim_names, dim_sizes, dim_label_lengths, NULL);
 
-	store_dim_labels(file, "gene", 2, xlabels);
 	store_dim_labels(file, "snp", 1, ylabels);
+
+	close_file(file);
+
+	file = open_file("TEST.hd5");
+	store_dim_labels(file, "gene", 2, xlabels);
 	store_dim_labels(file, "snp", 1, ylabels2);
 
 	if (get_file_rank(file) != 2)
 		abort();
 
-	if (get_file_core_rank(file) != 0)
+	if (get_file_core_rank(file) != 2)
 		abort();
 
 	puts("Testing dim names");

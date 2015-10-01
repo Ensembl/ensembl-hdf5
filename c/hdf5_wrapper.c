@@ -17,6 +17,8 @@
 #include "hdf5.h"
 #include "hdf5_wrapper.h"
 
+#define VERIFY(a) do { if((a)<0) { fprintf(stderr,"Failure line %d.\n",__LINE__); exit(-1);}}while(0)
+
 static int BIG_DIM_LENGTH = 1000;
 static int DEBUG = false;
 
@@ -96,17 +98,21 @@ static void create_string_array_table(hid_t file, char * dataset_name, hsize_t c
 	if (DEBUG)
 		printf("Allocating space for %lli names of length %lli in %s\n", count, shape[1], dataset_name);
 	hid_t dataspace = H5Screate_simple(2, shape, NULL);
+	VERIFY(dataspace);
 	hid_t dataset = H5Dcreate(file, dataset_name, H5T_NATIVE_CHAR, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	VERIFY(dataset);
 
 	// Store initial offset
         hid_t aid  = H5Screate(H5S_SCALAR);
+	VERIFY(aid);
         hid_t attr = H5Acreate(dataset, "count", H5T_NATIVE_HSIZE, aid, H5P_DEFAULT, H5P_DEFAULT);
+	VERIFY(attr);
 	hsize_t offset = 0;
-        H5Awrite(attr, H5T_NATIVE_HSIZE, &offset);
-        H5Aclose(attr);
+        VERIFY(H5Awrite(attr, H5T_NATIVE_HSIZE, &offset));
+        VERIFY(H5Aclose(attr));
 
-	H5Sclose(dataspace);
-	H5Dclose(dataset);
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Dclose(dataset));
 }
 
 static void store_string_array(hid_t file, char * dataset_name, hsize_t count, char ** strings) {
@@ -119,18 +125,21 @@ static void store_string_array(hid_t file, char * dataset_name, hsize_t count, c
 		}
 	}
 	hid_t dataset = H5Dopen(file, dataset_name, H5P_DEFAULT);
+	VERIFY(dataset);
 	hsize_t max_length = max_string_length(strings, count);
 
 	hid_t dataspace = H5Dget_space(dataset);
+	VERIFY(dataspace);
 
 	// Read last offset on that table
 	hsize_t total_count;
 	hid_t attr = H5Aopen(dataset, "count", H5P_DEFAULT);
-	H5Aread(attr, H5T_NATIVE_HSIZE, &total_count);
+	VERIFY(attr);
+	VERIFY(H5Aread(attr, H5T_NATIVE_HSIZE, &total_count));
 
 	// Checking that max_length fits in dataspace
 	hsize_t shape[2];
-	H5Sget_simple_extent_dims(dataspace, shape, NULL);
+	VERIFY(H5Sget_simple_extent_dims(dataspace, shape, NULL));
 	if (shape[0] < total_count + count) {
 		printf("Cannot store %lli more strings in a table allocated for %lli and containing already %lli\n", count, shape[0], total_count);
 		abort();
@@ -149,38 +158,43 @@ static void store_string_array(hid_t file, char * dataset_name, hsize_t count, c
 	width[0] = count;
 	width[1] = shape[1];
 	hid_t memspace = H5Screate_simple(2, width, NULL);
-	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
-	H5Dwrite(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, sarray->array);
+	VERIFY(memspace);
+	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
+	VERIFY(H5Dwrite(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, sarray->array));
 
 	// Store new offset
 	total_count += count;
-        H5Awrite(attr, H5T_NATIVE_HSIZE, &total_count);
+	VERIFY(H5Awrite(attr, H5T_NATIVE_HSIZE, &total_count));
 
 	// Clean up 
 	destroy_string_array(sarray);
-	H5Aclose(attr);
-	H5Sclose(dataspace);
-	H5Sclose(memspace);
-	H5Dclose(dataset);
+	VERIFY(H5Aclose(attr));
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Sclose(memspace));
+	VERIFY(H5Dclose(dataset));
 }
 
 static StringArray * get_string_array(hid_t file, char * dataset_name) {
 	hid_t dataset = H5Dopen(file, dataset_name, H5P_DEFAULT);
+	VERIFY(dataset);
 	hsize_t dim_sizes[2];
 	hid_t dataspace = H5Dget_space(dataset);
-	H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL);
-	H5Sclose(dataspace);
+	VERIFY(dataspace);
+	VERIFY(H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL));
+	VERIFY(H5Sclose(dataspace));
 	StringArray * dim_names = new_string_array(dim_sizes[0], dim_sizes[1]-1);
-	H5Dread(dataset, H5T_NATIVE_CHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, dim_names->array);
-	H5Dclose(dataset);
+	VERIFY(H5Dread(dataset, H5T_NATIVE_CHAR, H5S_ALL, H5S_ALL, H5P_DEFAULT, dim_names->array));
+	VERIFY(H5Dclose(dataset));
 	return dim_names;
 }
 
 static StringArray * get_string_subarray(hid_t file, char * dataset_name, hsize_t offset, hsize_t count) {
 	hid_t dataset = H5Dopen(file, dataset_name, H5P_DEFAULT);
+	VERIFY(dataset);
 	hsize_t width[2];
 	hid_t dataspace = H5Dget_space(dataset);
-	H5Sget_simple_extent_dims(dataspace, width, NULL);
+	VERIFY(dataspace);
+	VERIFY(H5Sget_simple_extent_dims(dataspace, width, NULL));
 	width[0] = count;
 	StringArray * dim_names = new_string_array(count, width[1] - 1);
 	hsize_t offset2[2];
@@ -188,17 +202,18 @@ static StringArray * get_string_subarray(hid_t file, char * dataset_name, hsize_
 	offset2[1] = 0;
 	if (DEBUG)
 		printf("Querying names in %s: %lli-%lli\n", dataset_name, offset, offset + count);
-	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset2, NULL, width, NULL);
+	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset2, NULL, width, NULL));
 	hid_t memspace = H5Screate_simple(2, width, NULL);
-	H5Dread(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, dim_names->array);
+	VERIFY(memspace);
+	VERIFY(H5Dread(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, dim_names->array));
 	if (DEBUG) {
 		int i;
 		for (i = 0; i < dim_names->count; i++)
 			printf("%lli => %s\n", offset + i, get_string_in_array(dim_names, i));
 	}
-	H5Sclose(dataspace);
-	H5Sclose(memspace);
-	H5Dclose(dataset);
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Sclose(memspace));
+	VERIFY(H5Dclose(dataset));
 	return dim_names;
 }
 
@@ -240,17 +255,19 @@ static void create_dim_labels_table(hid_t group, hsize_t dim, hsize_t dim_size, 
 static void create_all_dim_label_tables(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t * dim_label_lengths) {
 	hsize_t dim;
 	hid_t group = H5Gcreate(file, "/dim_labels", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	VERIFY(group);
 	for (dim = 0; dim < rank; dim++)
 		create_dim_labels_table(group, dim, dim_sizes[dim], dim_label_lengths[dim]);
-	H5Gclose(group);
+	VERIFY(H5Gclose(group));
 }
 
 static void store_dim_labels_in_table(hid_t file, hsize_t dim, hsize_t dim_size, char ** strings) {
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t group = H5Gopen(file, "/dim_labels", H5P_DEFAULT);
+	VERIFY(group);
 	store_string_array(group, buf, dim_size, strings);
-	H5Gclose(group);
+	VERIFY(H5Gclose(group));
 }
 
 static StringArray * get_dim_labels(hid_t group, hsize_t dim, hsize_t offset, hsize_t width) {
@@ -264,9 +281,10 @@ static StringArray ** get_table_dims_labels(hid_t file, ResultTable * table, hsi
 	hid_t dim;
 
 	hid_t group = H5Gopen(file, "/dim_labels", H5P_DEFAULT);
+	VERIFY(group);
 	for (dim = 0; dim < table->columns; dim++)
 		dim_labels[dim] = get_dim_labels(group, dim, offset[table->dims[dim]], width[table->dims[dim]]);
-	H5Gclose(group);
+	VERIFY(H5Gclose(group));
 
 	return dim_labels;
 }
@@ -275,8 +293,9 @@ StringArray * get_all_dim_labels(hid_t file, hsize_t dim) {
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t group = H5Gopen(file, "/dim_labels", H5P_DEFAULT);
+	VERIFY(group);
 	StringArray * res = get_string_array(group, buf);
-	H5Gclose(group);
+	VERIFY(H5Gclose(group));
 	return res;
 }
 
@@ -286,22 +305,28 @@ StringArray * get_all_dim_labels(hid_t file, hsize_t dim) {
 
 hsize_t get_file_rank(hid_t file) {
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
+	VERIFY(dataset);
 	hid_t dataspace = H5Dget_space(dataset);
+	VERIFY(dataspace);
 	hsize_t rank = H5Sget_simple_extent_ndims(dataspace);
-	H5Sclose(dataspace);
-	H5Dclose(dataset);
+	VERIFY(rank);
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Dclose(dataset));
 	return rank;
 }
 
 static void set_file_core_rank(hid_t file, hsize_t core_rank) {
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
+	VERIFY(dataset);
         hid_t aid2  = H5Screate(H5S_SCALAR);
+	VERIFY(aid2);
         hid_t attr2 = H5Acreate(dataset, "Core dimensions", H5T_NATIVE_INT, aid2,
                       H5P_DEFAULT, H5P_DEFAULT);
+	VERIFY(attr2);
 	if (DEBUG)
 		printf("Setting core rank %lli\n", core_rank);
         H5Awrite(attr2, H5T_NATIVE_INT, &core_rank);
-	H5Dclose(dataset);
+	VERIFY(H5Dclose(dataset));
         H5Aclose(attr2);
         H5Sclose(aid2);
 }
@@ -309,8 +334,9 @@ static void set_file_core_rank(hid_t file, hsize_t core_rank) {
 hsize_t get_file_core_rank(hid_t file) {
 	hsize_t core_rank = 1;
 	hid_t attr = H5Aopen_by_name(file, "/matrix", "Core dimensions", H5P_DEFAULT, H5P_DEFAULT);
-	H5Aread(attr, H5T_NATIVE_INT, &core_rank);
-	H5Aclose(attr);
+	VERIFY(attr);
+	VERIFY(H5Aread(attr, H5T_NATIVE_INT, &core_rank));
+	VERIFY(H5Aclose(attr));
 	return core_rank;
 }
 
@@ -320,46 +346,54 @@ hsize_t get_file_core_rank(hid_t file) {
 
 static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t * chunk_sizes) {
 	hid_t dataspace = H5Screate_simple(rank, dim_sizes, NULL);
+	VERIFY(dataspace);
 	hid_t cparms = H5Pcreate(H5P_DATASET_CREATE);
-	H5Pset_chunk(cparms, rank, chunk_sizes);
+	VERIFY(cparms);
+	VERIFY(H5Pset_chunk(cparms, rank, chunk_sizes));
 	hid_t dataset = H5Dcreate(file, "/matrix", H5T_NATIVE_DOUBLE, dataspace,
 		            H5P_DEFAULT, cparms, H5P_DEFAULT);
-	H5Sclose(dataspace);
-	H5Pclose(cparms);
-	H5Dclose(dataset);
+	VERIFY(dataset);
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Pclose(cparms));
+	VERIFY(H5Dclose(dataset));
 }
 
 static void store_values_in_matrix(hid_t file, hsize_t count, hsize_t ** coords, double * values) {
 	hsize_t rank = get_file_rank(file);
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
+	VERIFY(dataset);
  	hid_t filespace = H5Dget_space(dataset);
+	VERIFY(filespace);
 	hid_t memspace = H5Screate_simple(1, &count, NULL);
+	VERIFY(memspace);
 	hsize_t * coord = calloc(count * rank, sizeof(hsize_t));
-	hsize_t index, dim, pos;
-	pos = 0;
+	hsize_t index, dim, pos = 0;
 	for (index = 0; index < count; index++) {
 		for (dim = 0; dim < rank; dim++) {
 			coord[pos++] = coords[index][dim];
 		}
 	}
-	H5Sselect_elements(filespace, H5S_SELECT_SET, count, coord);
-	H5Dwrite(dataset, H5T_NATIVE_DOUBLE, memspace, filespace, H5P_DEFAULT, values);
-	H5Sclose(filespace);
-	H5Sclose(memspace);
-	H5Dclose(dataset);
+	VERIFY(H5Sselect_elements(filespace, H5S_SELECT_SET, count, coord));
+	VERIFY(H5Dwrite(dataset, H5T_NATIVE_DOUBLE, memspace, filespace, H5P_DEFAULT, values));
+	VERIFY(H5Sclose(filespace));
+	VERIFY(H5Sclose(memspace));
+	VERIFY(H5Dclose(dataset));
 }
 
 static double * fetch_values(hid_t file, hsize_t * offset, hsize_t * width) {
 	hsize_t rank = get_file_rank(file);
-	double * array = alloc_ndim_array(rank, width, H5Tget_size(H5T_NATIVE_DOUBLE));
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
+	VERIFY(dataset);
 	hid_t dataspace = H5Dget_space(dataset);
-	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
+	VERIFY(dataspace);
+	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
 	hid_t memspace = H5Screate_simple(rank, width, NULL);
-	H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, array);
-	H5Sclose(dataspace);
-	H5Sclose(memspace);
-	H5Dclose(dataset);
+	VERIFY(memspace);
+	double * array = alloc_ndim_array(rank, width, H5Tget_size(H5T_NATIVE_DOUBLE));
+	VERIFY(H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, array));
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Sclose(memspace));
+	VERIFY(H5Dclose(dataset));
 	return array;
 }
 
@@ -373,38 +407,48 @@ static void create_boundaries_group(hid_t group, hsize_t core_rank, hsize_t dim,
 	shape[1] = core_rank - 1;
 	shape[2] = 2;
 	hid_t dataspace = H5Screate_simple(3, shape, NULL);
+	VERIFY(dataspace);
 
 	hid_t params = H5Pcreate(H5P_DATASET_CREATE);
 	long value = -1;
-	H5Pset_fill_value(params, H5T_NATIVE_LONG, &value);
+	VERIFY(params);
+	VERIFY(H5Pset_fill_value(params, H5T_NATIVE_HSIZE, &value));
 
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t dataset = H5Dcreate(group, buf, H5T_NATIVE_LONG, dataspace, H5P_DEFAULT, params, H5P_DEFAULT);
-	H5Dclose(dataset);
-	H5Sclose(dataspace);
+	VERIFY(dataset);
+	VERIFY(H5Dclose(dataset));
+	VERIFY(H5Sclose(dataspace));
 }
 
 static void create_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, hsize_t * dim_sizes) {
 	int dim;
 	hid_t group = H5Gcreate(file, "/boundaries", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	VERIFY(group);
 	for (dim = rank - core_rank; dim < rank; dim++)
 		create_boundaries_group(group, core_rank, dim, dim_sizes[dim - rank + core_rank]);
-	H5Gclose(group);
+	VERIFY(H5Gclose(group));
 }
 
 static long * initialise_boundary_array_dim(hid_t file, hsize_t dim) {
 	char buf[5];
 	hsize_t shape[3];
 	hid_t group = H5Gopen(file, "/boundaries", H5P_DEFAULT);
+	VERIFY(group);
 	sprintf(buf, "%llu", dim);
 	hid_t dataset = H5Dopen(group, buf, H5P_DEFAULT);
+	VERIFY(dataset);
 	hid_t dataspace = H5Dget_space(dataset);
-	H5Sget_simple_extent_dims(dataspace, shape, NULL);
-	H5Sclose(dataspace);
-	H5Dclose(dataset);
-	H5Gclose(group);
-	return calloc(volume(3, shape), sizeof(long));
+	VERIFY(dataspace);
+	VERIFY(H5Sget_simple_extent_dims(dataspace, shape, NULL));
+	hsize_t * res = calloc(volume(3, shape), sizeof(hsize_t));
+	VERIFY(H5Dread(dataset, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, res));
+	printf("DEBUG\n");
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Dclose(dataset));
+	VERIFY(H5Gclose(group));
+	return res;
 }
 
 static long ** initialise_boundary_array(hid_t file, hsize_t core_rank) {
@@ -456,16 +500,18 @@ static void store_boundaries_group(hid_t group, hsize_t dim, long * boundaries) 
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t dataset = H5Dopen(group, buf, H5P_DEFAULT);
-	H5Dwrite(dataset, H5T_NATIVE_LONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, boundaries);
-	H5Dclose(dataset);
+	VERIFY(dataset);
+	VERIFY(H5Dwrite(dataset, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, boundaries));
+	VERIFY(H5Dclose(dataset));
 }
 
 static void store_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, long ** boundaries) {
 	int dim;
 	hid_t group = H5Gopen(file, "/boundaries", H5P_DEFAULT);
+	VERIFY(group);
 	for (dim = 0; dim < core_rank; dim++)
 		store_boundaries_group(group, dim, boundaries[dim]);
-	H5Gclose(group);
+	VERIFY(H5Gclose(group));
 }
 
 static void free_boundary_array(long ** array, hsize_t core_rank) {
@@ -492,6 +538,7 @@ static long * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, 
 	char buf[5];
 	sprintf(buf, "%llu", dim);
 	hid_t dataset = H5Dopen(group, buf, H5P_DEFAULT);
+	VERIFY(dataset);
 	hsize_t offset[3];
 	offset[0] = constraint;
 	offset[1] = 0;
@@ -501,24 +548,27 @@ static long * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_rank, 
 	width[1] = core_rank - 1;
 	width[2] = 2;
 	hid_t dataspace = H5Dget_space(dataset);
-	H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL);
-	long * res = alloc_ndim_array(3, width, H5Tget_size(H5T_NATIVE_LONG));
+	VERIFY(dataspace);
+	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
+	hsize_t * res = alloc_ndim_array(3, width, H5Tget_size(H5T_NATIVE_HSIZE));
 	hid_t memspace = H5Screate_simple(3, width, NULL);
-	H5Dread(dataset, H5T_NATIVE_LONG, memspace, dataspace, H5P_DEFAULT, res);
-	H5Sclose(dataspace);
-	H5Sclose(memspace);
-	H5Dclose(dataset);
+	VERIFY(memspace);
+	VERIFY(H5Dread(dataset, H5T_NATIVE_HSIZE, memspace, dataspace, H5P_DEFAULT, res));
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Sclose(memspace));
+	VERIFY(H5Dclose(dataset));
 	return res;
 }
 
 static long ** open_boundaries(hid_t file, hsize_t rank, hsize_t core_rank, bool * set_dims, hsize_t * constraints) {
 	long ** boundaries = calloc(core_rank, sizeof(long *));
 	hid_t group = H5Gopen(file, "boundaries", H5P_DEFAULT);
+	VERIFY(group);
 	hsize_t dim;
 	for (dim = rank - core_rank; dim < rank; dim++)
 		if (set_dims[dim])
 			boundaries[dim] = open_boundaries_dim(group, rank, core_rank, dim, constraints[dim]);
-	H5Gclose(group);
+	VERIFY(H5Gclose(group));
 	return boundaries;
 }
 
@@ -554,11 +604,13 @@ static bool set_query_parameters(hid_t file, hsize_t rank, bool * set_dims, hsiz
 	int core_rank = get_file_core_rank(file);
 	hsize_t * dim_sizes = calloc(rank, sizeof(hsize_t));
 	hid_t dataset = H5Dopen(file, "/matrix", H5P_DEFAULT);
+	VERIFY(dataset);
 	hid_t dataspace = H5Dget_space(dataset);
-	H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL);
-	H5Sclose(dataspace);
-	H5Dclose(dataset);
 	long ** boundaries = open_boundaries(file, rank, core_rank, set_dims, constraints);
+	VERIFY(dataspace);
+	VERIFY(H5Sget_simple_extent_dims(dataspace, dim_sizes, NULL));
+	VERIFY(H5Sclose(dataspace));
+	VERIFY(H5Dclose(dataset));
 
 	hsize_t dim;
 	if (DEBUG)
@@ -822,6 +874,7 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 	}
 
 	hid_t file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+	VERIFY(file);
 	store_dim_names(file, rank, dim_names);
 	create_all_dim_label_tables(file, rank, dim_sizes, dim_label_lengths);
 	create_matrix(file, rank, dim_sizes, chunk_sizes);
@@ -934,7 +987,7 @@ void destroy_string_result_table(StringResultTable * table) {
 void close_file(hid_t file) {
 	if (DEBUG)
 		printf(">>>>>>>>>>>>>>> CLOSING FILE %i\n", file);
-	H5Fclose(file);
+	VERIFY(H5Fclose(file));
 }
 
 ////////////////////////////////////////////

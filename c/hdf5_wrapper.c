@@ -523,7 +523,7 @@ static hsize_t ** initialise_boundary_array(hid_t file, hsize_t rank, hsize_t co
 static void compute_boundaries_row_dim_2(hsize_t * boundaries, hsize_t rank, hsize_t core_rank, hsize_t * coords, hsize_t dim, hsize_t dim2) {
 	if (DEBUG > 1)
 		printf("Entering position at (dim%lli:%lli;dim%lli:%lli)\n", dim, coords[dim], dim2, coords[dim2]);
-	hsize_t proj_dim2 = dim2 > dim? dim2 - 1 + core_rank - rank: dim + core_rank - rank;
+	hsize_t proj_dim2 = dim2 > dim? dim2 - 1 + core_rank - rank: dim2 + core_rank - rank;
 	hsize_t position = coords[dim] * (core_rank - 1) * 2 + proj_dim2 * 2;
 
 	if (DEBUG > 1)

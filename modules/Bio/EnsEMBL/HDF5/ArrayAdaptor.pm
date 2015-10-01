@@ -279,9 +279,13 @@ sub store {
 
 sub fetch {
   my ($self, $constraints) = @_;
-  $constraints ||= {};
-  my $res = Bio::EnsEMBL::HDF5::fetch($self->{hdf5}, $self->_convert_coords($constraints));
-  return $res;
+  my $local_constraints = {};
+  foreach my $key (keys %$constraints) {
+    if (defined $constraints->{$key}) {
+      $local_constraints->{$key} = $constraints->{$key};
+    }
+  }
+  return Bio::EnsEMBL::HDF5::fetch($self->{hdf5}, $self->_convert_coords($local_constraints));
 }
 
 =head2 close

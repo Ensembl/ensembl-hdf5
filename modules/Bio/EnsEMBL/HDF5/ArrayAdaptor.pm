@@ -185,6 +185,25 @@ sub index_tables {
   }
 }
 
+=head2 get_indiced_hashref
+
+  Returns a hashref representation of a given table
+
+=cut
+
+sub dim_indices {
+  my ($self, $dim) = @_;
+  my %res = ();
+  my $sql = "SELECT external_id, hdf5_index FROM $dim";
+  my $sth = $self->{sqlite3}->prepare($sql);
+  $sth->execute();
+  while (my @row = $sth->fetchrow_array) {
+    ## Note that SQLite3 autoincrement starts at 1, instead of 0 for HDF5 indices
+    $res{$row[0]} = $row[1] - 1;
+  }
+  return \%res;
+}
+
 =head2 _get_numerical_value
 
   Arguments [1]: Name of dimension / key
@@ -204,9 +223,20 @@ sub _get_numerical_value {
   $self->{st_handles}{$dim}->execute($label);
   my @row =  $self->{st_handles}{$dim}->fetchrow_array;
 
-  scalar @row > 0 || die("Label $label unknown in dimension $dim");
-  ## Note that SQLite3 autoincrement starts at 1, instead of 0 for HDF5 indices
-  return $row[0] - 1;
+  if (scalar @row) {
+    ## Note that SQLite3 autoincrement starts at 1, instead of 0 for HDF5 indices
+    if ($row[0] <= 0) {
+      die;
+    }
+    return $row[0] - 1;
+  } else {
+    # print "Could not find $label in dimensions $dim\n";
+    my $sth = $self->{sqlite3}->prepare("SELECT hdf5_index FROM $dim LIMIT 10");
+    while (my @array = $sth->fetchrow_array) { 
+      print "Suggest $array[0]\n";
+    }
+    return undef;
+  }
 }
 
 =head2 _convert_coords
@@ -265,6 +295,10 @@ sub close {
     $self->{st_handles}{$key}->finish;
   }
   $self->{sqlite3}->db_handle->disconnect;
+
+  $self->{st_handles} = undef;
+  $self->{hdf5} = undef;
+  $self->{sqlite3} = undef;
 }
 
 1;

@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <time.h>
 #include "hdf5.h"
 #include "hdf5_wrapper.h"
@@ -372,7 +373,50 @@ hsize_t get_file_core_rank(hid_t file) {
 // Matrix operations 
 ////////////////////////////////////////////////////////
 
+static hsize_t * automatic_chunks(hsize_t rank, hsize_t * dim_sizes) {
+	hsize_t * chunk_sizes = calloc(rank, sizeof(hsize_t));
+	int cache_size = 100000;
+	double product = 1;
+	double l, ratio;
+	int dim, m;
+
+	if (DEBUG)
+		printf("Automatic setting of chunk sizes %lli\n", rank);
+
+	for (dim = 0; dim < rank; dim++)
+		product *= dim_sizes[dim] * sizeof(double);
+
+	ratio = cache_size / product;
+
+	for (m = rank; m > 0; m--) {
+		bool reject = false;
+		l = pow(ratio, 1/m);
+		for (dim = rank - m; dim < rank; dim++) {
+			if (l * dim_sizes[dim] < 1) {
+				reject = true;
+				break;
+			}
+		}
+		if (!reject)
+			break;
+	}
+
+	for (dim = 0; dim < rank; dim++) {
+		if (rank - dim > m)
+			chunk_sizes[dim] = 1;
+		else
+			chunk_sizes[dim] = (hsize_t) (l * dim_sizes[dim]);
+
+		if (DEBUG)
+			printf("Dim %i, length %lli will be chunked every %lli cells (l=%lf)\n", dim, dim_sizes[dim], chunk_sizes[dim], l);
+	}
+
+	return chunk_sizes;
+}
+
 static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t * chunk_sizes) {
+	if (!chunk_sizes)
+		chunk_sizes = automatic_chunks(rank, dim_sizes);
 	hid_t dataspace = H5Screate_simple(rank, dim_sizes, NULL);
 	VERIFY(dataspace);
 	hid_t cparms = H5Pcreate(H5P_DATASET_CREATE);
@@ -380,9 +424,10 @@ static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t
 	VERIFY(H5Pset_chunk(cparms, rank, chunk_sizes));
 	if (DEBUG) {
 		printf("Creating matrix of rank %lli\n", rank);
+		printf("Size\tChunk\n", rank);
 		int i;
 		for (i = 0; i < rank; i++)
-			printf("%lli %lli\n", dim_sizes[i], chunk_sizes[i]);
+			printf("%lli\t%lli\n", dim_sizes[i], chunk_sizes[i]);
 	}
 	hid_t dataset = H5Dcreate(file, "/matrix", H5T_NATIVE_DOUBLE, dataspace,
 		            H5P_DEFAULT, cparms, H5P_DEFAULT);
@@ -959,16 +1004,6 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 		dim_label_lengths[dim] = dims[dim].label_length;
 	}
 	
-	if (!chunk_sizes) {
-		chunk_sizes = calloc(rank, sizeof(hsize_t));
-		for (dim = 0; dim<rank; dim++) {
-			if (dim_sizes[dim] < 100)
-				chunk_sizes[dim] = dim_sizes[dim]; 
-			else
-				chunk_sizes[dim] = 100; 
-		}
-	}
-
 	hid_t file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
 	VERIFY(file);
 	store_dim_names(file, rank, dim_names);

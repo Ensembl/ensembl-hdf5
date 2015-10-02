@@ -79,8 +79,7 @@ sub new {
   my $self;
   ## If creating a new database
   if (! -e $filename || -z $filename) {
-    my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file);
-    `sort -k1,1 -k2,2n $curated_snp_id_file`;
+    my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $filename);
   
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
@@ -174,26 +173,39 @@ sub _store_gene_labels {
 =cut
 
 sub _curate_variant_names {
-  my ($variation_db, $snp_id_file) = @_;
+  my ($variation_db, $snp_id_file, $filename) = @_;
+
+  my $res = $filename.".snps";
+  if (-e $res && ! -z $res) {
+    return $res;
+  }
 
   print "Storing dataset variation IDs in temporary table\n";
   my $va = $variation_db->get_adaptor("variation");
 
   ## We start by storing all the variation labels
   ## unsorted into a temporary file
-  my ($fh, $temp) = tempfile;
+  open my $fh, ">", $res;
   open my $file, "<", $snp_id_file;
   while (my $line = <$file>) {
     chomp $line;
-    my $feature = $va->fetch_by_name($line)->get_all_VariationFeatures->[0];
-    if (! defined $feature) {
+    my $variant = $va->fetch_by_name($line);
+    if (! defined $variant) {
       next;
     }
+    my $features = $variant->get_all_VariationFeatures;
+    if (! scalar @$features) {
+      next;
+    }
+    my $feature = $features->[0];
     print $fh join("\t", ($feature->seq_region_name, $feature->seq_region_start, $feature->variation_name))."\n";
   }
   close $file;
+  close $fh;
 
-  return $temp;
+  `sort -k1,1 -k2,2n $res`;
+
+  return $res;
 }
 
 =head2 _store_variation_labels

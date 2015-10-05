@@ -86,12 +86,16 @@ sub extract_snp_ids_from_file {
 }
 
 sub extract_snp_ids {
-  my ($files) = @_;
+  my ($files, $filename) = @_;
+  my $out = $filename.".gtex.snp.ids";
+  if (-e $out && !-z $out) {
+    return $out;
+  }
   scalar @$files || die;
   my @temps = map({extract_snp_ids_from_file($_)} @$files);
   my ($fh, $temp) = tempfile();
-  run('sort -m ' .join(" ", @temps) ." | uniq > $temp");
-  return $temp;
+  run('sort -m ' .join(" ", @temps) ." | uniq > $out");
+  return $out;
 }
 
 sub build_eqtl_table {
@@ -99,7 +103,7 @@ sub build_eqtl_table {
 
   print "Extracting SNP ids from input files\n";
   my @files = @{$options->{files}};
-  my $snp_id_file = extract_snp_ids(\@files);
+  my $snp_id_file = extract_snp_ids(\@files, $options->{hdf5});
   
   my $registry = 'Bio::EnsEMBL::Registry';
   $registry->load_registry_from_db(

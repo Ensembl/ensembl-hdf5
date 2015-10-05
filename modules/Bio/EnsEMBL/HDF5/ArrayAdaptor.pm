@@ -126,7 +126,7 @@ sub _create_sqlite3_table {
   my ($self, $dim_name) = @_;
 
   my $sql = "
-  CREATE TABLE $dim_name (
+  CREATE TABLE IF NOT EXISTS $dim_name (
     hdf5_index	INTEGER PRIMARY KEY AUTOINCREMENT,
     external_id	VARCHAR(100) 
   )

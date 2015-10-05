@@ -218,6 +218,8 @@ sub _curate_variant_names {
 sub _store_variation_labels {
   my ($self, $variation_db, $snp_id_file) = @_;
 
+  $self->{snp_ids} = {};
+
   ## We then read the sorted file 
   print "Streaming variation IDs from database\n";
   open my $file2, "<", $snp_id_file;
@@ -226,6 +228,10 @@ sub _store_variation_labels {
     chomp $line;
     my @items = split("\t", $line);
     my $name = $items[2];
+    my $given_name = $items[3];
+    if (!($given_name eq $name)) {
+      $self->{snp_ids}{$given_name} = $name;
+    }
     push @labels, $name;
 
     # If buffer full, push into SQLite and HDF5 storage
@@ -272,8 +278,12 @@ sub _convert_coords {
   my ($self, $coords) = @_;
   my ($gene, $snp, $tissue, $statistic);
 
-  if (defined $coords->{'snp'}) {
-    $snp = $self->_get_numerical_value('snp', $coords->{snp});
+  if (defined $coords->{snp}) {
+    if (defined $self->{snp_ids} && exists $self->{snp_ids}{$coords->{snp}}) {
+       $snp = $self->_get_numerical_value('snp', $self->{snp_ids}{$coords->{snp}});
+    } else {
+       $snp = $self->_get_numerical_value('snp', $coords->{snp});
+    }
     if (! defined $snp) {
       my $id = $self->{variation_adaptor}->fetch_by_name($coords->{'snp'})->name;
       $snp = $self->_get_numerical_value('snp', $id);

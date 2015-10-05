@@ -285,25 +285,31 @@ sub _convert_coords {
        $snp = $self->_get_numerical_value('snp', $coords->{snp});
     }
     if (! defined $snp) {
-      my $id = $self->{variation_adaptor}->fetch_by_name($coords->{'snp'})->name;
-      $snp = $self->_get_numerical_value('snp', $id);
+      printf("CONNECTING TO VARIANT SERVER $coords->{snp}\n");
+      my $EnsemblSnp = $self->{variation_adaptor}->fetch_by_name($coords->{snp});
+      if (!defined $EnsemblSnp) {
+        die("No SNP or variant with name $coords->{snp}\n");
+      }
+      $snp = $self->_get_numerical_value('snp', $EnsemblSnp->name);
     }
 
     if (! defined $snp) {
-      die("Did not recognize ".$coords->{'snp'}."\n");
+      die("Did not recognize ".$coords->{snp}."\n");
     }
   }
 
-  if (defined $coords->{'gene'}) {
+  if (defined $coords->{gene}) {
     ## Hacky regexp of Ensembl IDs
-    if ($coords->{'gene'} =~ /ENS[A-Z]+[0-9]{11}/) {
-      $gene = $coords->{'gene'};
+    if ($coords->{gene} =~ /ENS[A-Z]+[0-9]{11}/) {
+      $gene = $coords->{gene};
     } else {
-      $gene = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{'gene'})->display_id->[0];
+      printf("CONNECTING TO CORE SERVER $coords->{gene}\n");
+      $gene = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene})->display_id->[0];
     }
     my $gene_id = $self->{gene_ids}{$gene}; 
 
     if (!defined $gene_id) {
+      printf("CONNECTING TO CORE SERVER2 $gene\n");
       my $EnsemblGene = $self->{gene_adaptor}->fetch_by_stable_id($gene);
       if (!defined $EnsemblGene) {
         die("No gene with name $gene\n");
@@ -312,7 +318,7 @@ sub _convert_coords {
     }
 
     if (!defined $gene_id) {
-      die("Did not recognize ".$coords->{'gene'}."\n".(scalar keys $self->{gene_ids}));
+      die("Did not recognize ".$coords->{gene}."\n".(scalar keys $self->{gene_ids}));
     } else {
       $gene = $gene_id;
     }

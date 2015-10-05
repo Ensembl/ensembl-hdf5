@@ -265,7 +265,12 @@ sub store {
   my ($self, $data_points) = @_;
   print "CONVERTING VALUES\n";
   my $start = time;
-  my @converted_points = map {$self->_convert_coords($_)} @$data_points;
+  my @converted_points = ();
+  foreach my $point (@$data_points) {
+    # If IDs are not recognized, eval stifles the error warning
+    # and the entry is simply ignored
+    eval { push @converted_points, $self->_convert_coords($point); };
+  }
   print "CONVERTED VALUES ". (time - $start) . "\n";
   Bio::EnsEMBL::HDF5::store($self->{hdf5}, \@converted_points);
 }

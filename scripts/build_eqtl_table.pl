@@ -55,7 +55,7 @@ sub main {
 
   ## Stash the content of the files
   foreach my $file (@{$options{files}}) {
-    my $tissue = pop @{$options{tissues}};
+    my $tissue = shift @{$options{tissues}};
     print "Loading file $file for tissue $tissue\n";
     extract_file_data($eqtl_adaptor, $file, $tissue);
   }

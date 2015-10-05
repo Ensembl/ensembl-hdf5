@@ -375,24 +375,46 @@ hsize_t get_file_core_rank(hid_t file) {
 
 static hsize_t * automatic_chunks(hsize_t rank, hsize_t * dim_sizes) {
 	hsize_t * chunk_sizes = calloc(rank, sizeof(hsize_t));
-	int cache_size = 100000;
-	double product = 1;
-	double l, ratio;
+	hsize_t cache_size = 500000;
+	double log_ratio, l;
 	int dim, m;
 
 	if (DEBUG)
 		printf("Automatic setting of chunk sizes %lli\n", rank);
 
-	for (dim = 0; dim < rank; dim++)
-		product *= dim_sizes[dim] * sizeof(double);
-
-	ratio = cache_size / product;
-
 	for (m = rank; m > 0; m--) {
+		if (DEBUG)
+			printf("Testing with %i chunked dimensions\n", m);
+
+		log_ratio = log(cache_size);
+		for (dim = rank - m; dim < rank; dim++)
+			log_ratio -= log(dim_sizes[dim]) + log(sizeof(double));
+
+		if (DEBUG)
+			printf("Ratio of cache size / virtual space = %lf\n", exp(log_ratio));
+
+		if (log_ratio == 0) {
+			if (DEBUG)
+				puts("Ratio rejected because null\n");
+			continue;
+		}
+
 		bool reject = false;
-		l = pow(ratio, 1/m);
+		l = exp(log_ratio/m);
+		if (DEBUG)
+			printf("Chunking ratio = %lf\n", l);
+		hsize_t product = 1;
 		for (dim = rank - m; dim < rank; dim++) {
-			if (l * dim_sizes[dim] < 1) {
+			hsize_t chunk_size = (hsize_t) (l > 1 ? dim_sizes[dim]: l * dim_sizes[dim]);
+			product *= chunk_size;
+
+			if (chunk_size <= 0 || product > cache_size) {
+				if (DEBUG) {
+					if (l * dim_sizes[dim] < 1) 
+						printf("Ratio rejected because dim %i too short\n", dim);
+					else
+						printf("Ratio rejected because too big for block\n");
+				}
 				reject = true;
 				break;
 			}
@@ -401,14 +423,17 @@ static hsize_t * automatic_chunks(hsize_t rank, hsize_t * dim_sizes) {
 			break;
 	}
 
+	if (DEBUG)
+		printf("The top %i dimensions will be chunked at ratio %lf\n", m, l);
+
 	for (dim = 0; dim < rank; dim++) {
 		if (rank - dim > m)
 			chunk_sizes[dim] = 1;
 		else
-			chunk_sizes[dim] = (hsize_t) (l * dim_sizes[dim]);
+			chunk_sizes[dim] = (hsize_t) (l > 1 ? dim_sizes[dim]: l * dim_sizes[dim]);
 
 		if (DEBUG)
-			printf("Dim %i, length %lli will be chunked every %lli cells (l=%lf)\n", dim, dim_sizes[dim], chunk_sizes[dim], l);
+			printf("Dim %i, length %lli will be chunked every %lli cells\n", dim, dim_sizes[dim], chunk_sizes[dim]);
 	}
 
 	return chunk_sizes;

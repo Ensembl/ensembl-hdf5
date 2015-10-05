@@ -108,7 +108,7 @@ sub new {
     $self->index_tables;
     copy($temp, $db_file);
   } else {
-    $self = $class->SUPER::new(-FILENAME => $filename, -DBNAME => $db_file);
+    $self = $class->SUPER::new(-FILENAME => $filename, -DBNAME => $temp);
   }
 
   $self->{tissue_ids} = $self->dim_indices('tissue');

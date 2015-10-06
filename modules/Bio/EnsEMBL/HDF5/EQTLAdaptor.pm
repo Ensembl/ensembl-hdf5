@@ -247,6 +247,34 @@ sub _store_variation_labels {
   }
 }
 
+=head2 _load_snp_aliases
+
+  Reads off list of SNP id replacements 
+  Argument [1] : Bio::EnsEMBL::DBSQL::DBAdaptor
+  Argument [2] : Bio::EnsEMBL::Variation::DBSQL::DBAdaptor
+
+=cut
+
+sub _load_snp_aliases {
+  my ($self, $snp_id_file) = @_;
+
+  $self->{snp_ids} = {};
+
+  ## We then read the sorted file 
+  open my $file, "<", $self->{hdf5}.".snp.ids";
+  while (my $line = <$file>) {
+    chomp $line;
+    my @items = split("\t", $line);
+    my $name = $items[2];
+    my $given_name = $items[3];
+    if (!($given_name eq $name)) {
+      $self->{snp_ids}{$given_name} = $name;
+    }
+  }
+  close $file;
+}
+
+
 =head2 _by_position
 
   Compares two Bio::EnsEMBL::Feature objects ($a and $b) based on coordinates
@@ -279,6 +307,9 @@ sub _convert_coords {
   my ($gene, $snp, $tissue, $statistic);
 
   if (defined $coords->{snp}) {
+    if (! defined $self->{snp_ids}) {
+	    $self->_load_snp_aliases;
+    }
     if (defined $self->{snp_ids} && exists $self->{snp_ids}{$coords->{snp}}) {
        $snp = $self->_get_numerical_value('snp', $self->{snp_ids}{$coords->{snp}});
     } else {

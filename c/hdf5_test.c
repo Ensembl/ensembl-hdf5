@@ -67,6 +67,7 @@ int main(int argc, char ** argv) {
 		labelsY = get_all_dim_labels(file, 0);
 		labelsX = get_all_dim_labels(file, 1);
 	}
+	destroy_string_array(names);
 
 	puts("Testing dim labels");
 	if (labelsX->count != 2)
@@ -75,6 +76,7 @@ int main(int argc, char ** argv) {
 		abort();
 	if (strcmp(get_string_in_array(labelsX, 1), "B"))
 		abort();
+	destroy_string_array(labelsX);
 
 	if (labelsY->count != 2)
 		abort();
@@ -82,6 +84,7 @@ int main(int argc, char ** argv) {
 		abort();
 	if (strcmp(get_string_in_array(labelsY, 1), "rs2"))
 		abort();
+	destroy_string_array(labelsY);
 
 	hsize_t coord[] = {0,0};
 	hsize_t coord2[] = {1,1};
@@ -114,6 +117,8 @@ int main(int argc, char ** argv) {
 	if (res->values[0] != 1)
 		abort();
 
+	destroy_string_result_table(res);
+
 	bool set_dims2[] = {0, 0};
 
 	printf("Fetching values again\n");
@@ -127,6 +132,7 @@ int main(int argc, char ** argv) {
 	if (res2->rows != 2)
 		abort();
 
+	destroy_string_result_table(res2);
 	printf("Success\n");
 	return 0;
 }

@@ -231,6 +231,7 @@ static StringArray * get_string_subarray(hid_t file, char * dataset_name, hsize_
 		for(dim = 0; dim < 2; dim++)
 			printf("\t%lli", dim_sizes[dim]);
 		puts("");
+		free(dim_sizes);
 	}
 
 	VERIFY(H5Dread(dataset, H5T_NATIVE_CHAR, memspace, dataspace, H5P_DEFAULT, dim_names->array));
@@ -440,8 +441,11 @@ static hsize_t * automatic_chunks(hsize_t rank, hsize_t * dim_sizes) {
 }
 
 static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t * chunk_sizes) {
-	if (!chunk_sizes)
+	bool temp_chunk = false;
+	if (!chunk_sizes) {
+		temp_chunk = true;
 		chunk_sizes = automatic_chunks(rank, dim_sizes);
+	}
 	hid_t dataspace = H5Screate_simple(rank, dim_sizes, NULL);
 	VERIFY(dataspace);
 	hid_t cparms = H5Pcreate(H5P_DATASET_CREATE);
@@ -456,6 +460,8 @@ static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t
 	}
 	hid_t dataset = H5Dcreate(file, "/matrix", H5T_NATIVE_DOUBLE, dataspace,
 		            H5P_DEFAULT, cparms, H5P_DEFAULT);
+	if (temp_chunk)
+		free(chunk_sizes);
 	VERIFY(dataset);
 	VERIFY(H5Sclose(dataspace));
 	VERIFY(H5Pclose(cparms));
@@ -482,6 +488,7 @@ static void store_values_in_matrix(hid_t file, hsize_t count, hsize_t ** coords,
 	VERIFY(H5Dwrite(dataset, H5T_NATIVE_DOUBLE, memspace, filespace, H5P_DEFAULT, values));
 	if (DEBUG)
 		printf("<<< HDF5 WRITE TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);
+	free(coord);
 	VERIFY(H5Sclose(filespace));
 	VERIFY(H5Sclose(memspace));
 	VERIFY(H5Dclose(dataset));
@@ -510,6 +517,7 @@ static double * fetch_values(hid_t file, hsize_t * offset, hsize_t * width) {
 		for(dim = 0; dim < rank; dim++)
 			printf("\t%lli", dim_sizes[dim]);
 		puts("");
+		free(dim_sizes);
 	}
 
 	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
@@ -710,6 +718,7 @@ static hsize_t * open_boundaries_dim(hid_t group, hsize_t rank, hsize_t core_ran
 		for(dim = 0; dim < 3; dim++)
 			printf("\t%lli", dim_sizes[dim]);
 		puts("");
+		free(dim_sizes);
 	}
 
 	VERIFY(H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, width, NULL));
@@ -1028,6 +1037,7 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 		dim_sizes[dim] = dims[dim].size;
 		dim_label_lengths[dim] = dims[dim].label_length;
 	}
+	free(dims);
 	
 	hid_t file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
 	VERIFY(file);
@@ -1119,6 +1129,8 @@ StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * c
 	free(array);
 	StringResultTable * res = stringify_result_table(file, offset, width, table);
 	destroy_result_table(table);
+	free(offset);
+	free(width);
 	if (DEBUG) 
 		printf("Returned %lli values\n", res->rows);
 	return res;
@@ -1130,9 +1142,11 @@ void destroy_string_result_table(StringResultTable * table) {
 	hsize_t row;
 	for (row = 0; row < table->rows; row++)
 		free(table->coords[row]);
+	free(table->coords);
 	hsize_t column;
 	for (column = 0; column < table->columns; column++)
 		destroy_string_array(table->dim_labels[column]);
+	free(table->dim_labels);
 	destroy_string_array(table->dim_names);
 	free(table->dims);
 	free(table->dim_indices);

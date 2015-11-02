@@ -63,10 +63,17 @@ sub main {
             -var_db_adaptor => $registry->get_DBAdaptor('human', 'variation'),
   );
 
-  my $results = $eqtl_adaptor->fetch({gene => $options->{gene}, tissue => $options->{tissue}, snp => $options->{snp}, statistic => $options->{statistic}});
-  print join("\t", qw/snp statistic value/)."\n";
+  my $results = $eqtl_adaptor->fetch({gene => $options->{gene}, tissue => $options->{tissue}, snp => $options->{snp}, statistic => $options->{stat}});
+  print join("\t", qw/snp gene statistic value/)."\n";
   foreach my $result (@$results) {
-    print join("\t", ($result->{snp}, $result->{statistic}, $result->{value}))."\n";
+    foreach my $column (qw/snp gene stat value/) {
+      if (defined $options->{$column}) {
+        print "*$options->{$column}\t";
+      } else {
+        print "$result->{$column}\t";
+      }
+    }
+    print "\n";
   }
 
   $eqtl_adaptor->close;

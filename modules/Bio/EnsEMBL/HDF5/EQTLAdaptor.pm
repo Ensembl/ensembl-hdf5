@@ -109,6 +109,7 @@ sub new {
     copy($temp, $db_file);
   } else {
     $self = $class->SUPER::new(-FILENAME => $filename, -DBNAME => $temp);
+    $self->{filename} = $filename;
   }
 
   $self->{tissue_ids} = $self->dim_indices('tissue');
@@ -256,12 +257,12 @@ sub _store_variation_labels {
 =cut
 
 sub _load_snp_aliases {
-  my ($self, $snp_id_file) = @_;
+  my ($self) = @_;
 
   $self->{snp_ids} = {};
 
   ## We then read the sorted file 
-  open my $file, "<", $self->{hdf5}.".snp.ids";
+  open my $file, "<", $self->{filename}.".snp.ids";
   while (my $line = <$file>) {
     chomp $line;
     my @items = split("\t", $line);

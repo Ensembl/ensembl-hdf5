@@ -307,6 +307,8 @@ static StringArray * get_dim_labels(hid_t group, hsize_t dim, hsize_t offset, hs
 }
 
 static StringArray ** get_table_dims_labels(hid_t file, ResultTable * table, hsize_t * offset, hsize_t * width) {
+	if (table->columns == 0)
+		return NULL;
 	StringArray ** dim_labels = calloc(table->columns, sizeof(StringArray*));
 	hid_t dim;
 
@@ -853,6 +855,9 @@ static hsize_t count_width_rank(hsize_t rank, bool * set_dims) {
 }
 
 static hsize_t * projected_dims(hsize_t rank, hsize_t width_rank, bool * set_dims) {
+	if (!width_rank)
+		return NULL;
+
 	hsize_t dim;
 	hsize_t pos = 0;
 	hsize_t * res = calloc(width_rank, sizeof(hsize_t));
@@ -905,8 +910,10 @@ static ResultTable * newResultTable(double * array, hsize_t rank, hsize_t * offs
 	table->columns = width_rank;
 	table->dims = projected_dims(rank, width_rank, set_dims);
 	table->rows = count_non_zero_values(array, rank, width);
-	table->coords = calloc(table->rows, sizeof(hsize_t*));
-	table->values = calloc(table->rows, sizeof(double));
+	if (table->rows) {
+		table->coords = calloc(table->rows, sizeof(hsize_t*));
+		table->values = calloc(table->rows, sizeof(double));
+	}
 	return table;
 }
 
@@ -927,9 +934,11 @@ static ResultTable * unroll_matrix(double * array, hsize_t rank, hsize_t * offse
 
 static void destroy_result_table(ResultTable * table) {
 	int row;
-	for (row = 0; row < table->rows; row++)
-		free(table->coords[row]);
-	free(table->coords);
+	if (table->rows) {
+		for (row = 0; row < table->rows; row++)
+			free(table->coords[row]);
+		free(table->coords);
+	}
 	free(table);
 }
 
@@ -938,6 +947,9 @@ static void destroy_result_table(ResultTable * table) {
 ////////////////////////////////////////////////////////
 
 static char ** stringify_dim_names(hid_t file, ResultTable * table, StringArray * dim_names) {
+	if (!table->columns || !table->rows)
+		return NULL;
+
 	char ** res = calloc(table->columns, sizeof(char *));
 
 	hsize_t dim;
@@ -954,8 +966,12 @@ static char ** stringify_dim_names(hid_t file, ResultTable * table, StringArray 
 }
 
 static char *** stringify_coords(hid_t file, ResultTable * table, hsize_t * offset, StringArray ** dim_labels) {
+	if (!table->rows || !table->columns)
+		return NULL;
+
 	char *** coords = calloc(table->rows, sizeof(char **));
 	hsize_t row, dim;
+
 	for (row = 0; row < table->rows; row++) {
 		coords[row] = calloc(table->columns, sizeof(char **));
 		for (dim = 0; dim < table->columns; dim++) {
@@ -1140,17 +1156,24 @@ void destroy_string_result_table(StringResultTable * table) {
 	if (DEBUG)
 		printf(">>>>>>>>>>>>>>> DESTROY STRING RESULT TABLE %p\n", table);
 	hsize_t row;
-	for (row = 0; row < table->rows; row++)
-		free(table->coords[row]);
-	free(table->coords);
-	hsize_t column;
-	for (column = 0; column < table->columns; column++)
-		destroy_string_array(table->dim_labels[column]);
-	free(table->dim_labels);
+	if (table->rows && table->columns) {
+		for (row = 0; row < table->rows; row++)
+			free(table->coords[row]);
+		hsize_t column;
+		for (column = 0; column < table->columns; column++)
+			destroy_string_array(table->dim_labels[column]);
+	}
 	destroy_string_array(table->dim_names);
-	free(table->dims);
-	free(table->dim_indices);
-	free(table->values);
+	if (table->coords)
+		free(table->coords);
+	if (table->dims)
+		free(table->dims);
+	if (table->dim_labels)
+		free(table->dim_labels);
+	if (table->dim_indices)
+		free(table->dim_indices);
+	if (table->values)
+		free(table->values);
 	free(table);
 }
 

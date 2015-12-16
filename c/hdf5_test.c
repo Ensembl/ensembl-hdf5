@@ -133,6 +133,16 @@ int main(int argc, char ** argv) {
 		abort();
 
 	destroy_string_result_table(res2);
+
+	bool set_dims3[] = {1, 1};
+
+	printf("Fetching values single\n");
+	StringResultTable * res3 = fetch_string_values(file, set_dims3, constraints);
+
+	if (res3->columns)
+		abort();
+
+	destroy_string_result_table(res3);
 	printf("Success\n");
 	return 0;
 }

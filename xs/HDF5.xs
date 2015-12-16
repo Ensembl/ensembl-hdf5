@@ -176,7 +176,7 @@ hdf5_get_dim_labels(file)
 
 			// Store array ref in hash
 			char * dim_name = get_string_in_array(dim_names_sa, dim);
-			hv_store(dim_labels_hv, dim_name, strlen(dim_name), newRV_inc((SV *) dim_labels_av), 0);
+			hv_store(dim_labels_hv, dim_name, strlen(dim_name), newRV_noinc((SV *) dim_labels_av), 0);
 
 			// Free names
 			destroy_string_array(dim_labels_sa);
@@ -184,7 +184,7 @@ hdf5_get_dim_labels(file)
 		destroy_string_array(dim_names_sa);
 
 		// Return reference
-		RETVAL = newRV_inc((SV *) dim_labels_hv);
+		RETVAL = newRV_noinc((SV *) dim_labels_hv);
 	OUTPUT:
 		RETVAL
 
@@ -316,7 +316,7 @@ hdf5_fetch(file, constraints_hv)
 			hv_store(row_hv, "value", 5, newSVnv(table->values[index]), 0);
 
 			// Append to output array ref
-			av_push(results_av, newRV((SV*) row_hv));
+			av_push(results_av, newRV_noinc((SV*) row_hv));
 		}
 
 		// Cleaning up dynamically allocated arrays
@@ -324,7 +324,7 @@ hdf5_fetch(file, constraints_hv)
 		free(constraints);
 		destroy_string_result_table(table);
 
-		RETVAL = newRV((SV *) results_av);
+		RETVAL = newRV_noinc((SV *) results_av);
 	OUTPUT:
 		RETVAL
 

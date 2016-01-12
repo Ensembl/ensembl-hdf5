@@ -275,6 +275,18 @@ sub store {
   Bio::EnsEMBL::HDF5::store($self->{hdf5}, \@converted_points);
 }
 
+=head2 get_dim_labels
+
+  Arguments [1]: dimension name
+  Returntype: Arrayref of accepted labels
+
+=cut
+
+sub get_dim_labels {
+  my ($self, $dim_name) = @_;
+  return Bio::EnsEMBL::HDF5::get_dim_labels($self->{hdf5}, $dim_name);
+}
+
 =head2 fetch 
 
   Arguments [1]: Hashref of dimension name => label

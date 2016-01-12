@@ -389,4 +389,9 @@ sub _convert_coords {
   return $res;
 }
 
+sub fetch_all_tissues {
+  my ($self) = @_;
+  return $self->get_dim_labels("tissue");
+}
+
 1;

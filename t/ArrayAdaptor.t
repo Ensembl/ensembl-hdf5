@@ -33,7 +33,9 @@ $aa->store_dim_labels('gene', ['A', 'B']);
 $aa->store_dim_labels('snp', ['rs1']);
 $aa->store_dim_labels('snp', ['rs2']);
 
-my $dim_labels = Bio::EnsEMBL::HDF5::get_dim_labels($aa->{hdf5});
+my @gene_names = sort {$a cmp $b} @{$aa->get_dim_labels("gene")};
+ok( $gene_names[0] eq "A");
+ok( $gene_names[1] eq "B");
 
 my $original_data = [
   {gene => 'A', snp => 'rs1', value=>.1},

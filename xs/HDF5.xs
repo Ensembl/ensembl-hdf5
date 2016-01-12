@@ -150,7 +150,7 @@ hdf5_store_dim_labels(file, dim_name_sv, dim_labels_sv)
 		free(dim_labels);
 
 SV *
-hdf5_get_dim_labels(file)
+hdf5_get_all_dim_labels(file)
 		void * file
 	PREINIT:
 		struct hdf5_file_st * file_st = (struct hdf5_file_st *) file;
@@ -185,6 +185,45 @@ hdf5_get_dim_labels(file)
 
 		// Return reference
 		RETVAL = newRV_noinc((SV *) dim_labels_hv);
+	OUTPUT:
+		RETVAL
+
+SV *
+hdf5_get_dim_labels(file, dim_name_sv)
+		void * file
+		SV * dim_name_sv
+	PREINIT:
+		struct hdf5_file_st * file_st = (struct hdf5_file_st *) file;
+		char * dim_name = SvPV_nolen(dim_name_sv);
+		AV * dim_labels_av = newAV();
+		int dim_index;
+		hsize_t index;
+		StringArray * dim_labels_sa;
+		SV ** dim_sv;
+	CODE:
+		// Get dim index from hash
+		dim_sv = hv_fetch(file_st->dim_indices, dim_name, strlen(dim_name), 0);
+		if (dim_sv == NULL) {
+			printf("Dimension '%s' unknown!\n", dim_name);
+			exit(1);
+		}
+		dim_index = SvIV(*dim_sv);
+		
+		// Read labels
+		dim_labels_sa = get_all_dim_labels(file_st->file, dim_index);
+
+		// Store in array ref
+		for (index = 0; index < dim_labels_sa->count; index++) {
+			char * dim_label = get_string_in_array(dim_labels_sa, index);
+			SV * dim_label_sv = newSVpv(dim_label, 0);
+			av_push(dim_labels_av, dim_label_sv);
+		}
+
+		// Free names
+		destroy_string_array(dim_labels_sa);
+
+		// Return reference
+		RETVAL = newRV_noinc((SV *) dim_labels_av);
 	OUTPUT:
 		RETVAL
 

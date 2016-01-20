@@ -9,9 +9,9 @@ WriteMakefile(
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => '../modules/Bio/EnsEMBL/HDF5.pm', # retrieve abstract from module
        AUTHOR         => 'Daniel Zerbino <zerbino@ebi.ac.uk>') : ()),
-    LIBS              => ['-L../c -lhdf5_wrapper -lhdf5'], # e.g., '-lm'
+    LIBS              => ['-L../c -lhdf5_wrapper -L/usr/lib -lhdf5'], # e.g., '-lm'
     DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
-    INC               => '-I../c', # e.g., '-I. -I/usr/include/other'
+    INC               => '-I../c -I/usr/include', # e.g., '-I. -I/usr/include/other'
 	# Un-comment this if you add C files to link with later:
     # OBJECT            => '$(O_FILES)', # link all the C files too
 );

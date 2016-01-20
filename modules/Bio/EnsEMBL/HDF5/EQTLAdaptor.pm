@@ -28,7 +28,7 @@ limitations under the License.
 =head1 NAME
 
 EQTLAdaptor - An array adaptor for HDF5 files specialised in eQTL
-data. In particular, it populates gene and variation IDs from the 
+data. In particular, it populates gene and variation IDs from the
 Ensembl DBs, and silently converts user inputs into Ensembl IDs
 
 =cut
@@ -80,25 +80,25 @@ sub new {
   ## If creating a new database
   if (! -e $filename || -z $filename) {
     my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $filename.".snp.ids");
-  
+
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
     my $snp_max_length = `awk 'length(\$3) > max {max = length(\$3)} END {print max}' $curated_snp_id_file`;
     my $gene_stats = _fetch_gene_stats($core_db);
     $self = $class->SUPER::new(
-	    -FILENAME => $filename, 
+	    -FILENAME => $filename,
 	    -SIZES => {
-		    gene => $gene_stats->{count}, 
+		    gene => $gene_stats->{count},
 		    snp => $snp_count,
 		    tissue => scalar @$tissues,
 		    statistic => scalar @$statistics,
-	    }, 
+	    },
 	    -LABEL_LENGTHS => {
 		    gene => $gene_stats->{max_length},
-		    snp => $snp_max_length, 
+		    snp => $snp_max_length,
 		    tissue => max(map(length, @$tissues)),
 		    statistic => max(map(length, @$statistics)),
-	    }, 
+	    },
 	    -DBNAME => $temp,
     );
     $self->_store_gene_labels($core_db);
@@ -221,7 +221,7 @@ sub _store_variation_labels {
 
   $self->{snp_ids} = {};
 
-  ## We then read the sorted file 
+  ## We then read the sorted file
   print "Streaming variation IDs from database\n";
   open my $file2, "<", $snp_id_file;
   my @labels = ();
@@ -250,7 +250,7 @@ sub _store_variation_labels {
 
 =head2 _load_snp_aliases
 
-  Reads off list of SNP id replacements 
+  Reads off list of SNP id replacements
   Argument [1] : Bio::EnsEMBL::DBSQL::DBAdaptor
   Argument [2] : Bio::EnsEMBL::Variation::DBSQL::DBAdaptor
 
@@ -261,7 +261,7 @@ sub _load_snp_aliases {
 
   $self->{snp_ids} = {};
 
-  ## We then read the sorted file 
+  ## We then read the sorted file
   open my $file, "<", $self->{filename}.".snp.ids";
   while (my $line = <$file>) {
     chomp $line;
@@ -279,9 +279,9 @@ sub _load_snp_aliases {
 =head2 _by_position
 
   Compares two Bio::EnsEMBL::Feature objects ($a and $b) based on coordinates
-  Returntype : int 
+  Returntype : int
 
-=cut 
+=cut
 
 sub _by_position {
   my $a_pos = $a->strand > 0? $a->seq_region_start: $a->seq_region_end;
@@ -301,7 +301,7 @@ sub _by_position {
     * value  : floating point scalar
   Returntype : Arrayref of hashrefs
 
-=cut 
+=cut
 
 sub _convert_coords {
   my ($self, $coords) = @_;
@@ -336,9 +336,10 @@ sub _convert_coords {
       $gene = $coords->{gene};
     } else {
       printf("CONNECTING TO CORE SERVER $coords->{gene}\n");
-      $gene = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene})->display_id->[0];
+      $gene = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene})->[0]->stable_id;
     }
-    my $gene_id = $self->{gene_ids}{$gene}; 
+    print "$gene\n";
+    my $gene_id = $self->{gene_ids}{$gene};
 
     if (!defined $gene_id) {
       printf("CONNECTING TO CORE SERVER2 $gene\n");
@@ -346,7 +347,7 @@ sub _convert_coords {
       if (!defined $EnsemblGene) {
         die("No gene with name $gene\n");
       }
-      $gene_id = $self->{gene_ids}{$EnsemblGene->stable_id}; 
+      $gene_id = $self->{gene_ids}{$EnsemblGene->stable_id};
     }
 
     if (!defined $gene_id) {
@@ -373,13 +374,13 @@ sub _convert_coords {
   my $res = {};
   if (defined $gene) {
     $res->{gene} = $gene;
-  } 
+  }
   if (defined $snp) {
     $res->{snp} = $snp;
   }
   if (defined $tissue) {
     $res->{tissue} = $tissue;
-  } 
+  }
   if (defined $statistic) {
     $res->{statistic} = $statistic;
   }

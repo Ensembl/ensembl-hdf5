@@ -27,7 +27,7 @@ limitations under the License.
 
 =head1 NAME
 
-ArrayAdaptor - A generic array adaptor for HDF5 files 
+ArrayAdaptor - A generic array adaptor for HDF5 files
 
 =cut
 
@@ -43,8 +43,8 @@ use Bio::EnsEMBL::HDF5;
 =head2 new
 
     Constructor
-    Argument [1] : HDF5 Filename 
-    Argument [2] : Optional: Hash ref of dimension name => array ref of allowed values 
+    Argument [1] : HDF5 Filename
+    Argument [2] : Optional: Hash ref of dimension name => array ref of allowed values
     Returntype   : Bio::EnsEMBL::HDF5::ArrayAdaptor
 
 =cut
@@ -56,7 +56,7 @@ sub new {
   defined $filename || die ("Must specify HDF5 filename!");
 
   $dbname ||= $filename . ".sqlite3";
-  
+
   my $self = {
     hdf5 => undef,
     sqlite3 => Bio::EnsEMBL::DBSQL::DBConnection->new(-DBNAME => $dbname, -DRIVER => 'SQLite'),
@@ -95,16 +95,16 @@ sub new {
     my @dim_names = keys %$dim_sizes;
     $self->_create_sqlite3_file($filename, \@dim_names);
   }
-  
-  $self->{hdf5} = Bio::EnsEMBL::HDF5::open($filename); 
+
+  $self->{hdf5} = Bio::EnsEMBL::HDF5::open($filename);
 
   return $self;
 }
 
 =head2 _create_sqllite3_file
 
-    Argument [1] : HDF5 Filename 
-    Argument [2] : Hash ref of dimension name => array ref of allowed values 
+    Argument [1] : HDF5 Filename
+    Argument [2] : Hash ref of dimension name => array ref of allowed values
 
 =cut
 
@@ -128,7 +128,7 @@ sub _create_sqlite3_table {
   my $sql = "
   CREATE TABLE IF NOT EXISTS $dim_name (
     hdf5_index	INTEGER PRIMARY KEY AUTOINCREMENT,
-    external_id	VARCHAR(100) 
+    external_id	VARCHAR(100)
   )
   ";
   $self->{sqlite3}->do($sql);
@@ -232,7 +232,7 @@ sub _get_numerical_value {
   } else {
     # print "Could not find $label in dimensions $dim\n";
     my $sth = $self->{sqlite3}->prepare("SELECT hdf5_index FROM $dim LIMIT 10");
-    while (my @array = $sth->fetchrow_array) { 
+    while (my @array = $sth->fetchrow_array) {
       print "Suggest $array[0]\n";
     }
     return undef;
@@ -255,7 +255,7 @@ sub _convert_coords {
   return $numerical_coords;
 }
 
-=head2 store 
+=head2 store
 
   Arguments [1]: Arrayref of hashrefs: {dim_name1 => label1, ...,  "value" => scalar}
 
@@ -284,10 +284,11 @@ sub store {
 
 sub get_dim_labels {
   my ($self, $dim_name) = @_;
-  return Bio::EnsEMBL::HDF5::get_dim_labels($self->{hdf5}, $dim_name);
+
+  return { map {$_, 1} @{Bio::EnsEMBL::HDF5::get_dim_labels($self->{hdf5}, $dim_name)}};
 }
 
-=head2 fetch 
+=head2 fetch
 
   Arguments [1]: Hashref of dimension name => label
   Returntype: Arrayref of hashrefs: dimension name => label
@@ -318,8 +319,8 @@ sub close {
   $self->{sqlite3}->db_handle->disconnect;
 
   $self->{st_handles} = undef;
-  $self->{hdf5} = undef;
-  $self->{sqlite3} = undef;
+  $self->{hdf5}       = undef;
+  $self->{sqlite3}    = undef;
 }
 
 =head2 DESTROY

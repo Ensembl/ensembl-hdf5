@@ -1,7 +1,7 @@
 CFLAGS=-g -Wall -fPIC
 INC=
 LIB_PATHS=-L./
-LIBS=-lhdf5_wrapper -lhdf5
+LIBS=-lhdf5_wrapper -lhdf5 -lm
 
 default: lib test run_test
 

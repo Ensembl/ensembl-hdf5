@@ -41,7 +41,7 @@ use Bio::EnsEMBL::Registry;
 use Bio::EnsEMBL::HDF5::EQTLAdaptor;
 $| = 1; # Autoflushes all print statements
 
-Bio::EnsEMBL::HDF5::set_log(0); # Small talk from the C layer
+Bio::EnsEMBL::HDF5::set_log(2); # Small talk from the C layer
 
 main();
 
@@ -57,26 +57,16 @@ sub main {
 	  -db_version => 73,
   );
 
-      my $eqtl_adaptor = Bio::EnsEMBL::HDF5::EQTLAdaptor->new(
-                -filename => $options->{hdf5},
-                -core_db_adaptor => $registry->get_DBAdaptor('human', 'core'),
-                -var_db_adaptor => $registry->get_DBAdaptor('human', 'variation'),
-      );
+  my $eqtl_adaptor = Bio::EnsEMBL::HDF5::EQTLAdaptor->new(
+            -filename => $options->{hdf5},
+            -core_db_adaptor => $registry->get_DBAdaptor('human', 'core'),
+            -var_db_adaptor => $registry->get_DBAdaptor('human', 'variation'),
+  );
 
-  my $results;
-  open my $fh, "<", "IDs.txt";
-  while (my $line = <$fh>) {
-
-       chomp $line;
-       print $line.": ";
-       $results = $eqtl_adaptor->fetch({gene => $line, tissue => $options->{tissue}, snp => $options->{snp}, statistic => $options->{statistic}});
-       print scalar(@$results)."\n";
-  }
-  close($fh);
-
-  print join("\t", qw/tissue snp gene statistic value/)."\n";
+  my $results = $eqtl_adaptor->fetch({gene => $options->{gene}, tissue => $options->{tissue}, snp => $options->{snp}, statistic => $options->{stat}});
+  print join("\t", qw/snp gene statistic value/)."\n";
   foreach my $result (@$results) {
-    foreach my $column (qw/tissue snp gene statistic value/) {
+    foreach my $column (qw/snp gene stat value/) {
       if (defined $options->{$column}) {
         print "*$options->{$column}\t";
       } else {
@@ -91,7 +81,7 @@ sub main {
 
 sub get_options {
   my %options = ();
-  GetOptions(\%options, "help=s", "host|h=s", "port|p=s", "user|u=s", "pass|p=s", "tissue=s", "gene=s", "snp=s", "statistic=s", "hdf5=s", "sqlite3|d=s");
+  GetOptions(\%options, "help=s", "host|h=s", "port|p=s", "user|u=s", "pass|p=s", "tissue=s", "gene=s", "snp=s", "stat=s", "hdf5=s", "sqlite3|d=s");
   if (defined $options{tissues}
       && defined $options{files}
       && (scalar @{$options{tissues}} != scalar @{$options{files}})) {

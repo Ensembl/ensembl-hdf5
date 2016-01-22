@@ -47,6 +47,11 @@ main();
 
 sub main {
   my %options = %{get_options()};
+  my $fill = 0;
+
+  if (-e $options{hdf5}) {
+    $fill = 1;
+  }
 
   $options{sqlite3} ||= $options{hdf5} . ".sqlite3";
 
@@ -54,10 +59,12 @@ sub main {
   my $eqtl_adaptor = build_eqtl_table(\%options);
 
   ## Stash the content of the files
-  foreach my $file (@{$options{files}}) {
-    my $tissue = shift @{$options{tissues}};
-    print "Loading file $file for tissue $tissue\n";
-    extract_file_data($eqtl_adaptor, $file, $tissue);
+  if ($fill) {
+    foreach my $file (@{$options{files}}) {
+      my $tissue = shift @{$options{tissues}};
+      print "Loading file $file for tissue $tissue\n";
+      extract_file_data($eqtl_adaptor, $file, $tissue);
+    }
   }
 
   $eqtl_adaptor->close;

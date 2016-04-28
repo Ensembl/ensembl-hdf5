@@ -51,11 +51,13 @@ use Bio::EnsEMBL::HDF5;
 
 sub new {
   my $class = shift;
-  my ($filename, $dim_sizes, $dim_label_lengths, $dbname) = rearrange(['FILENAME','SIZES', 'LABEL_LENGTHS','DBNAME'], @_);
+  my ($filename, $dim_sizes, $dim_label_lengths, $dbname) = 
+  rearrange(['FILENAME','SIZES', 'LABEL_LENGTHS','DBNAME'], @_);
 
   defined $filename || die ("Must specify HDF5 filename!");
 
   $dbname ||= $filename . ".sqlite3";
+
 
   my $self = {
     hdf5 => undef,
@@ -69,7 +71,7 @@ sub new {
     if (! defined $dim_sizes || !defined $dim_label_lengths) {
       die("Cannot create a new HDF5 store without dimensional label info");
     }
-
+    # Consistency checks
     foreach my $key (keys %$dim_sizes) {
       if (defined $dim_sizes->{$key} && $dim_sizes->{$key} > 0) {
         defined $dim_label_lengths->{$key} || die("Dimension label length not defined for dimension $key\n");
@@ -82,10 +84,10 @@ sub new {
       if (defined $dim_label_lengths->{$key}) {
         defined $dim_sizes->{$key} && $dim_sizes->{$key} > 0 || die("Dimension size not defined for dimension $key\n");
       } else {
-	delete $dim_label_lengths->{$key};
+	       delete $dim_label_lengths->{$key};
       }
     }
-
+    # Should be outside this if/else
     if (-e $filename && -z $filename) {
       unlink $filename;
     }
@@ -115,6 +117,7 @@ sub _create_sqlite3_file {
     $self->_create_sqlite3_table($key);
   }
 }
+
 
 =head2 _create_sqlite3_table
 
@@ -162,6 +165,8 @@ sub store_dim_labels {
 sub _insert_into_sqlite3_table {
   my ($self, $dim_name, $dim_labels) = @_;
   my $sql2 = "INSERT INTO $dim_name (external_id) VALUES (?)";
+  # Enable transactions (by turning AutoCommit off) until the next call to commit or rollback. 
+  # After the next commit or rollback, AutoCommit will automatically be turned on again.
   $self->{sqlite3}->db_handle->begin_work;
   my $sth = $self->{sqlite3}->prepare($sql2);
   $sth->execute_array({}, $dim_labels);

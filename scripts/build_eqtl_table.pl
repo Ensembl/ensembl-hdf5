@@ -39,6 +39,7 @@ use File::Copy qw/ copy /;
 use File::Temp qw/ tempfile /;
 use Bio::EnsEMBL::Registry;
 use Bio::EnsEMBL::HDF5::EQTLAdaptor;
+use feature qw(say);
 $| = 1; # Autoflushes all print statements
 
 Bio::EnsEMBL::HDF5::set_log(1); # Small talk from the C layer
@@ -62,7 +63,7 @@ sub main {
   if ($fill) {
     foreach my $file (@{$options{files}}) {
       my $tissue = shift @{$options{tissues}};
-      print "Loading file $file for tissue $tissue\n";
+      say "Loading file $file for tissue $tissue";
       extract_file_data($eqtl_adaptor, $file, $tissue);
     }
   }
@@ -76,7 +77,7 @@ sub get_options {
   if (defined $options{tissues} 
       && defined $options{files} 
       && (scalar @{$options{tissues}} != scalar @{$options{files}})) {
-    die("You should provide as many tissue names as filenames!");
+    die("You must provide as many tissue names as filenames!");
   }
   if (!defined $options{tissues} || scalar @{$options{tissues}} < 1) {
 	  die("No tissues!");
@@ -88,7 +89,10 @@ sub extract_snp_ids_from_file {
   my ($file) = @_;
   defined $file || die;
   my ($fh, $temp) = tempfile();
-  run("gzip -dc $file | cut -f1 | grep -v ^# | grep ^rs | sort | uniq > $temp");
+  run("gzip -dc $file | cut -f1 | grep -v ^# |grep -v ^SNP | grep ^rs | sort | uniq > $temp");
+  if(!-e $temp || -z $temp) {
+    die "No data extracted from $file";
+  }
   return $temp;
 }
 
@@ -108,7 +112,7 @@ sub extract_snp_ids {
 sub build_eqtl_table {
   my ($options) = @_;
 
-  print "Extracting SNP ids from input files\n";
+  say "Extracting SNP ids from input files";
   my @files = @{$options->{files}};
   my $snp_id_file = extract_snp_ids(\@files, $options->{hdf5});
   
@@ -118,18 +122,18 @@ sub build_eqtl_table {
 	  -user => $options->{user}, 
 	  -pass => $options->{pass}, 
 	  -port => $options->{port}, 
-	  -db_version => 73,
+	  # -db_version => 73,
   );
 
   print "Building initial file\n";
   return Bio::EnsEMBL::HDF5::EQTLAdaptor->new(
-            -filename => $options->{hdf5},
-            -core_db_adaptor => $registry->get_DBAdaptor('human', 'core'),
-            -var_db_adaptor => $registry->get_DBAdaptor('human', 'variation'),
-            -tissues => $options->{tissues},
-            -statistics => ['beta','p-value'],
-            -dbfile => $options->{sqlite3},
-	    -snp_ids => $snp_id_file,
+          -filename         => $options->{hdf5},
+          -core_db_adaptor  => $registry->get_DBAdaptor('human', 'core'),
+          -var_db_adaptor   => $registry->get_DBAdaptor('human', 'variation'),
+          -tissues          => $options->{tissues},
+          -statistics       => ['beta','p-value'],
+          -dbfile           => $options->{sqlite3},
+          -snp_ids          => $snp_id_file,
   )
 }
 
@@ -144,7 +148,7 @@ sub extract_file_data {
   while (my $line = <$fh>) {
     chomp $line;
     my @items = split("\t", $line);
-    if (!($items[0] =~ /^rs[0-9]*/)) {
+    if ($items[0] !~ /^rs[0-9]*/) {
       next;
     }
     $items[1] =~ s/\.[0-9]+//;
@@ -152,9 +156,9 @@ sub extract_file_data {
     push @result, {gene => $items[1], snp => $items[0], tissue => $tissue, statistic => 'p-value', value => $items[4]};
     if (scalar @result > 1000000) {
       my $start = time;
-      print "STORING\n";
+      say "STORING";
       $eqtl_adaptor->store(\@result);
-      print "STORED\t". (time - $start) ."\n";
+      say "STORED\t". (time - $start);
       @result = ();
     }
   }
@@ -179,9 +183,9 @@ sub extract_file_data {
 
 sub run {
   my ($cmd) = @_;
-  print "Running $cmd\n";
+  say "Running $cmd";
   my $exit_code = system($cmd);
   if ($exit_code != 0) {
-    die("Failure when running command\n$cmd\n")
+    die("Failure when running command\n$cmd")
   }
 }

@@ -44,10 +44,14 @@ use POSIX qw/ strftime /;
 use File::Copy qw/ copy /;
 use List::Util qw/reduce max/;
 use File::Temp qw/ tempfile /;
+use feature qw/say/;
 
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
 use Bio::EnsEMBL::Utils::Exception qw/throw/;
 
+# use Cache::FileCache;
+# DBI->trace(1);
+use Data::Dumper;
 =head2 new
 
     Constructor
@@ -63,13 +67,16 @@ use Bio::EnsEMBL::Utils::Exception qw/throw/;
 
 sub new {
   my $class = shift;
-  my ($filename, $core_db, $variation_db, $tissues, $statistics, $db_file, $snp_id_file) = rearrange(['FILENAME','CORE_DB_ADAPTOR','VAR_DB_ADAPTOR','TISSUES','STATISTICS','DBFILE','SNP_IDS'], @_);
+  my ($hdf5_file, $core_db, $variation_db, 
+    $tissues, $statistics, $db_file, $snp_id_file) = 
+  rearrange(['FILENAME','CORE_DB_ADAPTOR','VAR_DB_ADAPTOR',
+    'TISSUES','STATISTICS','DBFILE','SNP_IDS'], @_);
 
-  if (! defined $filename) {
+  if (! defined $hdf5_file) {
     die("Cannot create HDF5 adaptor around undef filename!\n");
   }
-
-  $db_file ||= $filename . ".sqlite3";
+  # If not hdf5 sqlite3 file has provided, create one using base of hdf5 file
+  $db_file ||= $hdf5_file . ".sqlite3";
   my ($fh, $temp) = tempfile;
 
   if (-e $db_file) {
@@ -77,29 +84,34 @@ sub new {
   }
 
   my $self;
+  # my $cache = new Cache::FileCache();
   ## If creating a new database
-  if (! -e $filename || -z $filename) {
-    my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $filename.".snp.ids");
+  if (! -e $hdf5_file || -z $hdf5_file) {
+
+    say 'Creating a new DB (no hdf5 file passed or size 0)';
+    my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $hdf5_file.".snp.ids");
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
     my $snp_max_length = `awk 'length(\$3) > max {max = length(\$3)} END {print max}' $curated_snp_id_file`;
+
     my $gene_stats = _fetch_gene_stats($core_db);
+   
     $self = $class->SUPER::new(
-	    -FILENAME => $filename,
-	    -SIZES => {
-		    gene => $gene_stats->{count},
-		    snp => $snp_count,
-		    tissue => scalar @$tissues,
-		    statistic => scalar @$statistics,
+      -FILENAME   => $hdf5_file,
+      -DBNAME     => $temp,
+      -SIZES      => {
+        gene      => $gene_stats->{count},
+        snp       => $snp_count,
+        tissue    => scalar @$tissues,
+        statistic => scalar @$statistics,
+	      },
+      -LABEL_LENGTHS => {
+        gene      => $gene_stats->{max_length},
+        snp       => $snp_max_length,
+        tissue    => max(map(length, @$tissues)),
+        statistic => max(map(length, @$statistics)),
 	    },
-	    -LABEL_LENGTHS => {
-		    gene => $gene_stats->{max_length},
-		    snp => $snp_max_length,
-		    tissue => max(map(length, @$tissues)),
-		    statistic => max(map(length, @$statistics)),
-	    },
-	    -DBNAME => $temp,
     );
     $self->_store_gene_labels($core_db);
     $self->_store_variation_labels($variation_db, $curated_snp_id_file);
@@ -108,8 +120,8 @@ sub new {
     $self->index_tables;
     copy($temp, $db_file);
   } else {
-    $self = $class->SUPER::new(-FILENAME => $filename, -DBNAME => $temp);
-    $self->{filename} = $filename;
+    $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $temp);
+    $self->{hdf5_file} = $hdf5_file;
   }
 
   $self->{tissue_ids} = $self->dim_indices('tissue');
@@ -130,9 +142,10 @@ sub new {
 
 sub _fetch_gene_stats {
   my ($core_db) = @_;
-  my $count = 0;
-  my $max_length = -1;
-  my $gene_adaptor = $core_db->get_adaptor("gene");
+  
+  my $count         = 0;
+  my $max_length    = -1;
+  my $gene_adaptor  = $core_db->get_adaptor("gene");
   my $slice_adaptor = $core_db->get_adaptor("slice");
 
   print "Going through gene IDs\n";
@@ -169,44 +182,61 @@ sub _store_gene_labels {
   }
 }
 
-=head2 _sort_and_curate_variant_names
+=head2 _curate_variant_names
+  $file_gtex_snps = list of unique IDs (rs or GTEX) parsed from GTEX file
+  $file_hdf5_snps = contains chr, pos, rsID, ID from $file_gtex_snps.
+                    sorted first by chr, then by pos
+  
+  $filemname = eqtl.hdf5.gtex.snp.ids
+  GTEX4: 
+  1       729679  rs4951859       rs4951859
+  GTEX6
+  1 30923 rs806731  1_30923_G_T_b37
 
 =cut
 
 sub _curate_variant_names {
-  my ($variation_db, $snp_id_file, $filename) = @_;
+  my ($variation_db, $file_gtex_snps, $file_hdf5_snps) = @_;
 
-  if (-e $filename && ! -z $filename) {
-    return $filename;
+  if (-e $file_hdf5_snps && ! -z $file_hdf5_snps) {
+    return $file_hdf5_snps;
   }
 
   print "Storing dataset variation IDs in temporary table\n";
-  my $va = $variation_db->get_adaptor("variation");
+  my $va  = $variation_db->get_adaptor("variation");
 
   ## We start by storing all the variation labels
   ## unsorted into a temporary file
   my ($out, $temp) = tempfile;
-  open my $in, "<", $snp_id_file;
+#  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
+  open my $in, "<", $file_gtex_snps;
   while (my $line = <$in>) {
     chomp $line;
-    my $variant = $va->fetch_by_name($line);
-    if (! defined $variant) {
-      next;
+    $line =~ /^rs\d+$/;
+    my $rsid = $1;
+
+    if (! defined $rsid) {
+      die "Expect rsID (/^rs\\d+/), not $line";    
     }
+
+    my $variant = $va->fetch_by_name($rsid);
+
     my $features = $variant->get_all_VariationFeatures;
     if (! scalar @$features) {
       next;
     }
     my $feature = $features->[0];
     print $out join("\t", ($feature->seq_region_name, $feature->seq_region_start, $feature->variation_name, $line))."\n";
+    
   }
 
-  `sort -k1,1 -k2,2n $temp > $filename`;
+  `sort -k1,1 -k2,2n $temp > $file_hdf5_snps`;
 
   close $in;
   close $out;
-  return $filename;
+  return $file_hdf5_snps;
 }
+
 
 =head2 _store_variation_labels
 
@@ -262,7 +292,7 @@ sub _load_snp_aliases {
   $self->{snp_ids} = {};
 
   ## We then read the sorted file
-  open my $file, "<", $self->{filename}.".snp.ids";
+  open my $file, "<", $self->{hdf5_file}.".snp.ids";
   while (my $line = <$file>) {
     chomp $line;
     my @items = split("\t", $line);
@@ -290,7 +320,7 @@ sub _by_position {
   return $chrom_cmp ? $chrom_cmp : $a_pos <=> $b_pos;
 }
 
-=head2 _convert_to_Ensembl
+=head2 _convert_coords
 
   Converts external IDs (gene names or variation rsIDs) into Ensembl IDs, possibly uncovering redundancies
   Argument [1] : Hashrefs, where each key/value pair is a dimension/value

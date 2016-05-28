@@ -22,25 +22,25 @@ use warnings;
 use Test::More;
 use File::Temp qw/tempfile/;
 
-BEGIN { use_ok('Bio::EnsEMBL::HDF5_mockup') };
+BEGIN { use_ok('Bio::EnsEMBL::HDF5_sqlite') };
 
-use Bio::EnsEMBL::HDF5_mockup;
+use Bio::EnsEMBL::HDF5_sqlite;
 
 # For chatty output
-#Bio::EnsEMBL::HDF5_mockup::set_log(1);
+#Bio::EnsEMBL::HDF5_sqlite::set_log(1);
 
 my ($fh, $filename) = tempfile();
-Bio::EnsEMBL::HDF5_mockup::create($filename, {gene => 2, snp => 2}, {gene => 1, snp => 3});
+Bio::EnsEMBL::HDF5_sqlite::create($filename, {gene => 2, snp => 2}, {gene => 1, snp => 3});
 
-ok(my $hdfh = Bio::EnsEMBL::HDF5_mockup::open($filename));
+ok(my $hdfh = Bio::EnsEMBL::HDF5_sqlite::open($filename));
 
-Bio::EnsEMBL::HDF5_mockup::store_dim_labels($hdfh, 'gene', ['A','B']);
-Bio::EnsEMBL::HDF5_mockup::store_dim_labels($hdfh, 'snp', ['rs1']);
-Bio::EnsEMBL::HDF5_mockup::store_dim_labels($hdfh, 'snp', ['rs2']);
+Bio::EnsEMBL::HDF5_sqlite::store_dim_labels($hdfh, 'gene', ['A','B']);
+Bio::EnsEMBL::HDF5_sqlite::store_dim_labels($hdfh, 'snp', ['rs1']);
+Bio::EnsEMBL::HDF5_sqlite::store_dim_labels($hdfh, 'snp', ['rs2']);
 
-my $labels = Bio::EnsEMBL::HDF5_mockup::get_all_dim_labels($hdfh);
+my $labels = Bio::EnsEMBL::HDF5_sqlite::get_all_dim_labels($hdfh);
 
-my @gene_names = sort { $a cmp $b } @{Bio::EnsEMBL::HDF5_mockup::get_dim_labels($hdfh, "gene")};
+my @gene_names = sort { $a cmp $b } @{Bio::EnsEMBL::HDF5_sqlite::get_dim_labels($hdfh, "gene")};
 
 ok($gene_names[0] eq "A");
 ok($gene_names[1] eq "B");
@@ -54,11 +54,11 @@ my $original_data2 = [
 ];
 
 # Inserting data into file
-Bio::EnsEMBL::HDF5_mockup::store($hdfh, $original_data);
-Bio::EnsEMBL::HDF5_mockup::store($hdfh, $original_data2);
+Bio::EnsEMBL::HDF5_sqlite::store($hdfh, $original_data);
+Bio::EnsEMBL::HDF5_sqlite::store($hdfh, $original_data2);
 
 # Pulling out all the data
-my @output_data = @{Bio::EnsEMBL::HDF5_mockup::fetch($hdfh, {})};
+my @output_data = @{Bio::EnsEMBL::HDF5_sqlite::fetch($hdfh, {})};
 
 ok(scalar(@output_data) == 2);
 
@@ -76,7 +76,7 @@ foreach my $data_point (@output_data) {
 }
 
 # Pulling out a subset of the data
-@output_data = @{Bio::EnsEMBL::HDF5_mockup::fetch($hdfh, {gene => 0})};
+@output_data = @{Bio::EnsEMBL::HDF5_sqlite::fetch($hdfh, {gene => 0})};
 
 ok(scalar(@output_data) == 1);
 my $data_point = pop @output_data;
@@ -87,7 +87,7 @@ ok($data_point->{snp} eq 'rs1');
 ok($data_point->{value} == .1);
 
 # Test whether an error is raised when an unkown gene is requested
-#@output_data = @{Bio::EnsEMBL::HDF5_mockup::fetch($hdfh, {gene => 2})};
+#@output_data = @{Bio::EnsEMBL::HDF5_sqlite::fetch($hdfh, {gene => 2})};
 
 done_testing;
 

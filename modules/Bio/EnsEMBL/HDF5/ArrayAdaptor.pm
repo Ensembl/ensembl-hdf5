@@ -38,7 +38,28 @@ use warnings;
 
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
-use Bio::EnsEMBL::HDF5;
+use feature qw/say/;
+
+our $hdf5_adaptor;
+
+BEGIN {
+  eval {require Bio::EnsEMBL::HDF5};
+  if ($@) {
+    eval {
+      say "Could not load HDF5 Adaptor. Trying SQLite alternative";
+      require Bio::EnsEMBL::HDF5_sqlite};
+    if($@){
+      die "Could not load any adaptor";
+    }
+    else{
+      say "Usingg HDF5_sqlite";
+      $hdf5_adaptor = 'Bio::EnsEMBL::HDF5_sqlite';
+    }
+  }
+  else {
+    $hdf5_adaptor = 'Bio::EnsEMBL::HDF5';
+  }
+}
 
 =head2 new
 
@@ -51,7 +72,7 @@ use Bio::EnsEMBL::HDF5;
 
 sub new {
   my $class = shift;
-  my ($filename, $dim_sizes, $dim_label_lengths, $dbname) = 
+  my ($filename, $dim_sizes, $dim_label_lengths, $dbname) =
   rearrange(['FILENAME','SIZES', 'LABEL_LENGTHS','DBNAME'], @_);
 
   defined $filename || die ("Must specify HDF5 filename!");
@@ -92,7 +113,7 @@ sub new {
       unlink $filename;
     }
 
-    Bio::EnsEMBL::HDF5::create($filename, $dim_sizes, $dim_label_lengths);
+    $hdf5_adaptor->create($filename, $dim_sizes, $dim_label_lengths);
 
     my @dim_names = keys %$dim_sizes;
     $self->_create_sqlite3_file($filename, \@dim_names);
@@ -148,7 +169,7 @@ sub _create_sqlite3_table {
 sub store_dim_labels {
   my ($self, $dim_name, $dim_labels) = @_;
   my $start = time;
-  Bio::EnsEMBL::HDF5::store_dim_labels($self->{hdf5}, $dim_name, $dim_labels);
+  $hdf5_adaptor->store_dim_labels($self->{hdf5}, $dim_name, $dim_labels);
   print "HDF5 time =\t" . (time - $start). "\n";
   $start = time;
   $self->_insert_into_sqlite3_table($dim_name, $dim_labels);
@@ -165,7 +186,7 @@ sub store_dim_labels {
 sub _insert_into_sqlite3_table {
   my ($self, $dim_name, $dim_labels) = @_;
   my $sql2 = "INSERT INTO $dim_name (external_id) VALUES (?)";
-  # Enable transactions (by turning AutoCommit off) until the next call to commit or rollback. 
+  # Enable transactions (by turning AutoCommit off) until the next call to commit or rollback.
   # After the next commit or rollback, AutoCommit will automatically be turned on again.
   $self->{sqlite3}->db_handle->begin_work;
   my $sth = $self->{sqlite3}->prepare($sql2);
@@ -213,7 +234,7 @@ sub dim_indices {
 
   Arguments [1]: Name of dimension / key
   Arguments [2]: Name of value
-  Return type: integer index of value within HDF5 matrix
+  Return type  : integer index of value within HDF5 matrix
 
 =cut
 
@@ -277,26 +298,26 @@ sub store {
     eval { push @converted_points, $self->_convert_coords($point); };
   }
   print "CONVERTED VALUES ". (time - $start) . "\n";
-  Bio::EnsEMBL::HDF5::store($self->{hdf5}, \@converted_points);
+  $hdf5_adaptor->store($self->{hdf5}, \@converted_points);
 }
 
 =head2 get_dim_labels
 
   Arguments [1]: dimension name
-  Returntype: Arrayref of accepted labels
+  Returntype   : Arrayref of accepted labels
 
 =cut
 
 sub get_dim_labels {
   my ($self, $dim_name) = @_;
 
-  return { map {$_, 1} @{Bio::EnsEMBL::HDF5::get_dim_labels($self->{hdf5}, $dim_name)}};
+  return { map {$_, 1} @{$hdf5_adaptor->get_dim_labels($self->{hdf5}, $dim_name)}};
 }
 
 =head2 fetch
 
   Arguments [1]: Hashref of dimension name => label
-  Returntype: Arrayref of hashrefs: dimension name => label
+  Returntype   : Arrayref of hashrefs: dimension name => label
 
 =cut
 
@@ -308,7 +329,7 @@ sub fetch {
       $local_constraints->{$key} = $constraints->{$key};
     }
   }
-  return Bio::EnsEMBL::HDF5::fetch($self->{hdf5}, $self->_convert_coords($local_constraints));
+  return $hdf5_adaptor->fetch($self->{hdf5}, $self->_convert_coords($local_constraints));
 }
 
 =head2 close
@@ -317,7 +338,7 @@ sub fetch {
 
 sub close {
   my ($self) = @_;
-  Bio::EnsEMBL::HDF5::close($self->{hdf5});
+  $hdf5_adaptor->close($self->{hdf5});
   foreach my $key (keys %{$self->{st_handles}}) {
     $self->{st_handles}{$key}->finish;
   }

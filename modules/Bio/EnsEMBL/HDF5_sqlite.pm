@@ -31,7 +31,7 @@ HDF5 Mockup: A replacement class for the HDF5 module using SQLite for testing pu
 
 =cut
 
-package Bio::EnsEMBL::HDF5_mockup;
+package Bio::EnsEMBL::HDF5_sqlite;
 
 use strict;
 use warnings;
@@ -92,21 +92,34 @@ sub create {
   }
 
   # Create table for main matrix
-  my $column_descriptions = join(", ", map { $_." VARCHAR(".$dim_label_lengths->{$_}.")" } @dim_names); 
+  my $column_descriptions = join(", ", map { $_." VARCHAR(".$dim_label_lengths->{$_}.")" } @dim_names);
   $sql_command = "
   CREATE TABLE IF NOT EXISTS matrix (
     $column_descriptions,
-    value FLOAT 
+    value FLOAT
   )
   ";
   $sqlite->do($sql_command);
   $sqlite->db_handle->disconnect;
 }
 
+=head2 DESTROY
+  Destructor
+  Description: Restores default state of the STDOUT filehandle as it is a copy
+               and may not flush correctly.
+=cut
+
+sub DESTROY {
+  my $self = shift;
+  if ($self->{'stdout'}) {
+    close $self->{'filehandle'};
+  }
+}
+
 =head2 open
 
   Opens existing file
-  Argument [1] : File location 
+  Argument [1] : File location
   Returntype   : Bio::EnsEMBL::DBSQL::DBConnection
 
 =cut
@@ -152,7 +165,7 @@ sub _get_all_dim_names {
 
   Get all labels associated to all dimensions
   Argument [1]: Bio::EnsEMBL::DBSQL::DBConnection
-  Returntype: Hashref { dimension name => listref(dimension labels) } 
+  Returntype: Hashref { dimension name => listref(dimension labels) }
 
 =cut
 
@@ -168,8 +181,8 @@ sub get_all_dim_labels {
   Argument [1]: Bio::EnsEMBL::DBSQL::DBConnection
   Argument [2]: Dimension name
   Returntype: Listref of dimension labels
-  
-=cut 
+
+=cut
 
 sub get_dim_labels {
   my ($sqlite, $dim_name) = @_;
@@ -205,7 +218,7 @@ sub store {
 }
 
 =head2 fetch
- 
+
   Fetches all values that fit a given pattern
   Argument [1]: Bio::EnsEMBL::DBSQL::DBConnection
   Argument [2]: Hashref { dimension name => required dimension_value }

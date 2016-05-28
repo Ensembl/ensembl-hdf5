@@ -67,8 +67,8 @@ use Data::Dumper;
 
 sub new {
   my $class = shift;
-  my ($hdf5_file, $core_db, $variation_db, 
-    $tissues, $statistics, $db_file, $snp_id_file) = 
+  my ($hdf5_file, $core_db, $variation_db,
+    $tissues, $statistics, $db_file, $snp_id_file) =
   rearrange(['FILENAME','CORE_DB_ADAPTOR','VAR_DB_ADAPTOR',
     'TISSUES','STATISTICS','DBFILE','SNP_IDS'], @_);
 
@@ -96,7 +96,7 @@ sub new {
     my $snp_max_length = `awk 'length(\$3) > max {max = length(\$3)} END {print max}' $curated_snp_id_file`;
 
     my $gene_stats = _fetch_gene_stats($core_db);
-   
+
     $self = $class->SUPER::new(
       -FILENAME   => $hdf5_file,
       -DBNAME     => $temp,
@@ -142,7 +142,7 @@ sub new {
 
 sub _fetch_gene_stats {
   my ($core_db) = @_;
-  
+
   my $count         = 0;
   my $max_length    = -1;
   my $gene_adaptor  = $core_db->get_adaptor("gene");
@@ -186,9 +186,9 @@ sub _store_gene_labels {
   $file_gtex_snps = list of unique IDs (rs or GTEX) parsed from GTEX file
   $file_hdf5_snps = contains chr, pos, rsID, ID from $file_gtex_snps.
                     sorted first by chr, then by pos
-  
+
   $filemname = eqtl.hdf5.gtex.snp.ids
-  GTEX4: 
+  GTEX4:
   1       729679  rs4951859       rs4951859
   GTEX6
   1 30923 rs806731  1_30923_G_T_b37
@@ -212,11 +212,11 @@ sub _curate_variant_names {
   open my $in, "<", $file_gtex_snps;
   while (my $line = <$in>) {
     chomp $line;
-    $line =~ /^rs\d+$/;
+    $line =~ /^(rs\d+)\s/;
     my $rsid = $1;
 
     if (! defined $rsid) {
-      die "Expect rsID (/^rs\\d+/), not $line";    
+      die "Expect rsID (/^rs\\d+/), not $line";
     }
 
     my $variant = $va->fetch_by_name($rsid);
@@ -227,7 +227,7 @@ sub _curate_variant_names {
     }
     my $feature = $features->[0];
     print $out join("\t", ($feature->seq_region_name, $feature->seq_region_start, $feature->variation_name, $line))."\n";
-    
+
   }
 
   `sort -k1,1 -k2,2n $temp > $file_hdf5_snps`;

@@ -24,7 +24,7 @@ struct hdf5_file_st {
 	int * dim_name_lengths;
 };
 
-MODULE = Bio::EnsEMBL::HDF5 PACKAGE = Bio::EnsEMBL::HDF5 PREFIX=hdf5_
+MODULE = Bio::EnsEMBL::HDF5 PACKAGE = Bio::EnsEMBL::HDF5
 
 void
 hdf5_create(filename_sv, dim_sizes_hv, dim_label_lengths_hv)

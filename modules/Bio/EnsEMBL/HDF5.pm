@@ -16,7 +16,13 @@ our @ISA = qw(Exporter);
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
 our %EXPORT_TAGS = ( 'all' => [ qw(
-	
+  hdf5_close
+	hdf5_create
+	hdf5_fetch
+	hdf5_get_dim_labels
+	hdf5_open
+	hdf5_store
+	hdf5_store_dim_labels
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );

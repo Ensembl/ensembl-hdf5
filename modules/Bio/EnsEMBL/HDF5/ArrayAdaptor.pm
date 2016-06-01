@@ -39,27 +39,50 @@ use warnings;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
 use feature qw/say/;
+use Data::Dumper;
+use Bio::EnsEMBL::HDF5_sqlite qw ( 
+      hdf5_close
+      hdf5_create
+      hdf5_fetch
+      hdf5_get_dim_labels
+      hdf5_open
+      hdf5_store
+      hdf5_store_dim_labels
+    );
 
-our $hdf5_adaptor;
-
-BEGIN {
-  eval {require Bio::EnsEMBL::HDF5};
-  if ($@) {
-    eval {
-      say "Could not load HDF5 Adaptor. Trying SQLite alternative";
-      require Bio::EnsEMBL::HDF5_sqlite};
-    if($@){
-      die "Could not load any adaptor";
-    }
-    else{
-      say "Usingg HDF5_sqlite";
-      $hdf5_adaptor = 'Bio::EnsEMBL::HDF5_sqlite';
-    }
-  }
-  else {
-    $hdf5_adaptor = 'Bio::EnsEMBL::HDF5';
-  }
-}
+# BEGIN {
+#   eval {require Bio::EnsEMBL::HDF5};
+#   if ($@) {
+#     eval {
+#       say "Could not load HDF5 Adaptor. Trying SQLite alternative";
+#       require Bio::EnsEMBL::HDF5_sqlite;
+#     };
+#     if($@){
+#       die "Could not load any adaptor";
+#     }
+#     else{
+#       say "UsingHDF5_sqlite";
+#       use Bio::EnsEMBL::HDF5_sqlite qw( 
+#         hdf5_close
+#         hdf5_create
+#         hdf5_fetch
+#         hdf5_get_dim_labels
+#         hdf5_store
+#         hdf5_store_dim_labels
+#       );
+#     }
+#   }
+#   else {
+#     use Bio::EnsEMBL::HDF5 qw ( 
+#       hdf5_close
+#       hdf5_create
+#       hdf5_fetch
+#       hdf5_get_dim_labels
+#       hdf5_store
+#       hdf5_store_dim_labels
+#     );
+#   }
+# }
 
 =head2 new
 
@@ -113,13 +136,13 @@ sub new {
       unlink $filename;
     }
 
-    $hdf5_adaptor->create($filename, $dim_sizes, $dim_label_lengths);
+    hdf5_create($filename, $dim_sizes, $dim_label_lengths);
 
     my @dim_names = keys %$dim_sizes;
     $self->_create_sqlite3_file($filename, \@dim_names);
   }
 
-  $self->{hdf5} = Bio::EnsEMBL::HDF5::open($filename);
+  $self->{hdf5} = hdf5_open($filename);
 
   return $self;
 }
@@ -169,7 +192,7 @@ sub _create_sqlite3_table {
 sub store_dim_labels {
   my ($self, $dim_name, $dim_labels) = @_;
   my $start = time;
-  $hdf5_adaptor->store_dim_labels($self->{hdf5}, $dim_name, $dim_labels);
+  hdf5_store_dim_labels($self->{hdf5}, $dim_name, $dim_labels);
   print "HDF5 time =\t" . (time - $start). "\n";
   $start = time;
   $self->_insert_into_sqlite3_table($dim_name, $dim_labels);
@@ -298,7 +321,7 @@ sub store {
     eval { push @converted_points, $self->_convert_coords($point); };
   }
   print "CONVERTED VALUES ". (time - $start) . "\n";
-  $hdf5_adaptor->store($self->{hdf5}, \@converted_points);
+  hdf5_store($self->{hdf5}, \@converted_points);
 }
 
 =head2 get_dim_labels
@@ -311,7 +334,7 @@ sub store {
 sub get_dim_labels {
   my ($self, $dim_name) = @_;
 
-  return { map {$_, 1} @{$hdf5_adaptor->get_dim_labels($self->{hdf5}, $dim_name)}};
+  return { map {$_, 1} @{hdf5_get_dim_labels($self->{hdf5}, $dim_name)}};
 }
 
 =head2 fetch
@@ -329,7 +352,12 @@ sub fetch {
       $local_constraints->{$key} = $constraints->{$key};
     }
   }
-  return $hdf5_adaptor->fetch($self->{hdf5}, $self->_convert_coords($local_constraints));
+  # An undef numberical value here ({'gene' => undef };) causes XS to throw "Use of uninitialized value in subroutine entry"
+  # 
+  no warnings;
+  my $temp = hdf5_fetch($self->{hdf5}, $self->_convert_coords($local_constraints));
+  use warnings;
+  return $temp;
 }
 
 =head2 close
@@ -338,7 +366,7 @@ sub fetch {
 
 sub close {
   my ($self) = @_;
-  $hdf5_adaptor->close($self->{hdf5});
+  hdf5_close($self->{hdf5});
   foreach my $key (keys %{$self->{st_handles}}) {
     $self->{st_handles}{$key}->finish;
   }

@@ -30,17 +30,17 @@ use Bio::EnsEMBL::HDF5;
 #Bio::EnsEMBL::HDF5::set_log(1);
 
 my ($fh, $filename) = tempfile();
-Bio::EnsEMBL::HDF5::create($filename, {gene => 2, snp => 2}, {gene => 1, snp => 3});
+Bio::EnsEMBL::HDF5::hdf5_create($filename, {gene => 2, snp => 2}, {gene => 1, snp => 3});
 
-ok(my $hdfh = Bio::EnsEMBL::HDF5::open($filename));
+ok(my $hdfh = Bio::EnsEMBL::HDF5::hdf5_open($filename));
 
-Bio::EnsEMBL::HDF5::store_dim_labels($hdfh, 'gene', ['A','B']);
-Bio::EnsEMBL::HDF5::store_dim_labels($hdfh, 'snp', ['rs1']);
-Bio::EnsEMBL::HDF5::store_dim_labels($hdfh, 'snp', ['rs2']);
+Bio::EnsEMBL::HDF5::hdf5_store_dim_labels($hdfh, 'gene', ['A','B']);
+Bio::EnsEMBL::HDF5::hdf5_store_dim_labels($hdfh, 'snp', ['rs1']);
+Bio::EnsEMBL::HDF5::hdf5_store_dim_labels($hdfh, 'snp', ['rs2']);
 
-my $labels = Bio::EnsEMBL::HDF5::get_all_dim_labels($hdfh);
+my $labels = Bio::EnsEMBL::HDF5::hdf5_get_all_dim_labels($hdfh);
 
-my @gene_names = sort { $a cmp $b } @{Bio::EnsEMBL::HDF5::get_dim_labels($hdfh, "gene")};
+my @gene_names = sort { $a cmp $b } @{Bio::EnsEMBL::HDF5::hdf5_get_dim_labels($hdfh, "gene")};
 
 ok($gene_names[0] eq "A");
 ok($gene_names[1] eq "B");
@@ -54,11 +54,11 @@ my $original_data2 = [
 ];
 
 # Inserting data into file
-Bio::EnsEMBL::HDF5::store($hdfh, $original_data);
-Bio::EnsEMBL::HDF5::store($hdfh, $original_data2);
+Bio::EnsEMBL::HDF5::hdf5_store($hdfh, $original_data);
+Bio::EnsEMBL::HDF5::hdf5_store($hdfh, $original_data2);
 
 # Pulling out all the data
-my @output_data = @{Bio::EnsEMBL::HDF5::fetch($hdfh, {})};
+my @output_data = @{Bio::EnsEMBL::HDF5::hdf5_fetch($hdfh, {})};
 
 ok(scalar(@output_data) == 2);
 
@@ -76,7 +76,7 @@ foreach my $data_point (@output_data) {
 }
 
 # Pulling out a subset of the data
-@output_data = @{Bio::EnsEMBL::HDF5::fetch($hdfh, {gene => 0})};
+@output_data = @{Bio::EnsEMBL::HDF5::hdf5_fetch($hdfh, {gene => 0})};
 
 ok(scalar(@output_data) == 1);
 my $data_point = pop @output_data;

@@ -35,10 +35,41 @@ package Bio::EnsEMBL::HDF5_sqlite;
 
 use strict;
 use warnings;
+use Data::Dumper;
 
 use List::Util qw/ max /;
 
 use Bio::EnsEMBL::DBSQL::DBConnection;
+
+require Exporter;
+
+our @ISA = qw(Exporter);
+
+# Items to export into callers namespace by default. Note: do not export
+# names by default without a very good reason. Use EXPORT_OK instead.
+# Do not simply export all your public functions/methods/constants.
+
+# This allows declaration use Bio::EnsEMBL::HDF5 ':all';
+# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
+# will save memory.
+our %EXPORT_TAGS = ( 'all' => [ qw(
+  hdf5_close
+  hdf5_create
+  hdf5_fetch
+  hdf5_get_dim_labels
+  hdf5_open
+  hdf5_store
+  hdf5_store_dim_labels
+) ] );
+
+our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+
+our @EXPORT = qw(
+  
+);
+
+our $VERSION = '0.01';
+
 
 =head2 create
 
@@ -49,7 +80,7 @@ use Bio::EnsEMBL::DBSQL::DBConnection;
 
 =cut
 
-sub create {
+sub hdf5_create {
   my ($filename, $dim_sizes, $dim_label_lengths) = @_;
 
   if (! defined $filename) {
@@ -124,7 +155,7 @@ sub DESTROY {
 
 =cut
 
-sub open {
+sub hdf5_open {
   my ($filename) = @_;
   return Bio::EnsEMBL::DBSQL::DBConnection->new(-DBNAME => $filename, -DRIVER => 'SQLite'),
 }
@@ -138,7 +169,7 @@ sub open {
 
 =cut
 
-sub store_dim_labels {
+sub hdf5_store_dim_labels {
   my ($sqlite, $dim_name, $dim_labels) = @_;
   my $sql_command = "INSERT INTO $dim_name (label) VALUES (?)";
   my $sth = $sqlite->prepare($sql_command);
@@ -171,7 +202,7 @@ sub _get_all_dim_names {
 
 sub get_all_dim_labels {
   my ($sqlite) = @_;
-  my %hash = map { $_ => get_dim_labels($sqlite, $_) } @{_get_all_dim_names($sqlite)};
+  my %hash = map { $_ => hdf5_get_dim_labels($sqlite, $_) } @{_get_all_dim_names($sqlite)};
   return \%hash;
 }
 
@@ -184,7 +215,7 @@ sub get_all_dim_labels {
 
 =cut
 
-sub get_dim_labels {
+sub hdf5_get_dim_labels {
   my ($sqlite, $dim_name) = @_;
   my $sql = "SELECT label FROM $dim_name";
   my $sth = $sqlite->prepare($sql);
@@ -201,7 +232,7 @@ sub get_dim_labels {
 
 =cut
 
-sub store {
+sub hdf5_store {
   my ($sqlite, $points) = @_;
   my $dim_names = _get_all_dim_names($sqlite);
   push @$dim_names, "value";
@@ -226,7 +257,7 @@ sub store {
 
 =cut
 
-sub fetch {
+sub hdf5_fetch {
   my ($sqlite, $constraints) = @_;
   my $dim_names = _get_all_dim_names($sqlite);
   my $dim_labels = get_all_dim_labels($sqlite);
@@ -244,6 +275,7 @@ sub fetch {
   }
 
   my $sql_command = "SELECT $free_dims_string FROM matrix $constraints_string";
+  warn $sql_command;
   my $sth = $sqlite->prepare($sql_command);
   $sth->execute;
   my @array = ();
@@ -262,7 +294,7 @@ sub fetch {
 
 =cut
 
-sub close {
+sub hdf5_close {
   my ($sqlite) = @_;
   $sqlite->db_handle->disconnect;
 }

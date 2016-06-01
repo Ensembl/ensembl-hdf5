@@ -22,6 +22,8 @@ use warnings;
 use Test::More;
 use Bio::EnsEMBL::HDF5::ArrayAdaptor;
 use File::Temp qw/tempfile/;
+use Data::Dumper;
+use feature qw(say);
 
 # For chatty output
 #Bio::EnsEMBL::HDF5::set_log(1);
@@ -33,9 +35,12 @@ $aa->store_dim_labels('gene', ['A', 'B']);
 $aa->store_dim_labels('snp', ['rs1']);
 $aa->store_dim_labels('snp', ['rs2']);
 
-my @gene_names = sort {$a cmp $b} @{$aa->get_dim_labels("gene")};
-ok( $gene_names[0] eq "A");
-ok( $gene_names[1] eq "B");
+
+my $gene_names = $aa->get_dim_labels("gene");
+ok(ref $gene_names eq 'HASH');
+ok( scalar keys(%{$gene_names}) == 2);
+ok( defined $gene_names->{A} );
+ok( defined $gene_names->{B} );
 
 my $original_data = [
   {gene => 'A', snp => 'rs1', value=>.1},

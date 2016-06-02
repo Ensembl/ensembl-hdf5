@@ -43,6 +43,7 @@ make
 cd ../xs
 perl Makefile.PL
 make
+mkdir -p  `echo $PERL5LIB | sed -e 's/:.*//'`/auto/Bio/EnsEMBL/HDF5
 cp ./blib/arch/auto/Bio/EnsEMBL/HDF5/HDF5.so `echo $PERL5LIB | sed -e 's/:.*//'`/auto/Bio/EnsEMBL/HDF5/HDF5.so
 perl t/*
 

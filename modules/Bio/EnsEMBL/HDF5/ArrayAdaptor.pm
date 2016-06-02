@@ -40,49 +40,44 @@ use Bio::EnsEMBL::DBSQL::DBConnection;
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
 use feature qw/say/;
 use Data::Dumper;
-use Bio::EnsEMBL::HDF5_sqlite qw ( 
-      hdf5_close
-      hdf5_create
-      hdf5_fetch
-      hdf5_get_dim_labels
-      hdf5_open
-      hdf5_store
-      hdf5_store_dim_labels
-    );
 
-# BEGIN {
-#   eval {require Bio::EnsEMBL::HDF5};
-#   if ($@) {
-#     eval {
-#       say "Could not load HDF5 Adaptor. Trying SQLite alternative";
-#       require Bio::EnsEMBL::HDF5_sqlite;
-#     };
-#     if($@){
-#       die "Could not load any adaptor";
-#     }
-#     else{
-#       say "UsingHDF5_sqlite";
-#       use Bio::EnsEMBL::HDF5_sqlite qw( 
-#         hdf5_close
-#         hdf5_create
-#         hdf5_fetch
-#         hdf5_get_dim_labels
-#         hdf5_store
-#         hdf5_store_dim_labels
-#       );
-#     }
-#   }
-#   else {
-#     use Bio::EnsEMBL::HDF5 qw ( 
-#       hdf5_close
-#       hdf5_create
-#       hdf5_fetch
-#       hdf5_get_dim_labels
-#       hdf5_store
-#       hdf5_store_dim_labels
-#     );
-#   }
-# }
+
+BEGIN {
+  eval {
+    require Bio::EnsEMBL::HDF5;
+    Bio::EnsEMBL::HDF5->import(
+      qw(
+        hdf5_close
+        hdf5_create
+        hdf5_fetch
+        hdf5_get_dim_labels
+        hdf5_open
+        hdf5_store
+        hdf5_store_dim_labels
+      )
+    );
+  };
+  if ($@) {
+    eval {
+      say "Could not load HDF5 Adaptor. Trying SQLite alternative";
+      require Bio::EnsEMBL::HDF5_sqlite;
+      Bio::EnsEMBL::HDF5_sqlite->import(
+        qw(
+          hdf5_close
+          hdf5_create
+          hdf5_fetch
+          hdf5_get_dim_labels
+          hdf5_open
+          hdf5_store
+          hdf5_store_dim_labels
+        )
+      );
+    };
+    if($@){
+      die "Could not load any adaptor";
+    }
+  }
+}
 
 =head2 new
 
@@ -352,7 +347,7 @@ sub fetch {
       $local_constraints->{$key} = $constraints->{$key};
     }
   }
-  # An undef numberical value here ({'gene' => undef };) causes XS to throw "Use of uninitialized value in subroutine entry"
+  # An undef numberical value here (e.g. {'gene' => undef };) causes XS to throw "Use of uninitialized value in subroutine entry"
   # 
   no warnings;
   my $temp = hdf5_fetch($self->{hdf5}, $self->_convert_coords($local_constraints));

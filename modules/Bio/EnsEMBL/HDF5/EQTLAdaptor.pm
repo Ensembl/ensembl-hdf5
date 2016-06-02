@@ -84,7 +84,6 @@ sub new {
   }
 
   my $self;
-  # my $cache = new Cache::FileCache();
   ## If creating a new database
   if (! -e $hdf5_file || -z $hdf5_file) {
 
@@ -119,16 +118,18 @@ sub new {
     $self->store_dim_labels('statistic', $statistics);
     $self->index_tables;
     copy($temp, $db_file);
+    $self->{variation_adaptor}  = $variation_db->get_adaptor("variation");
+    $self->{gene_adaptor}       = $core_db->get_adaptor("gene");
   } else {
+    say "$hdf5_file";
     $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $temp);
     $self->{hdf5_file} = $hdf5_file;
   }
 
-  $self->{tissue_ids} = $self->dim_indices('tissue');
-  $self->{gene_ids} = $self->dim_indices('gene');
-  $self->{statistic_ids} = $self->dim_indices('statistic');
-  $self->{variation_adaptor} = $variation_db->get_adaptor("variation");
-  $self->{gene_adaptor} = $core_db->get_adaptor("gene");
+  $self->{tissue_ids}         = $self->dim_indices('tissue');
+  $self->{gene_ids}           = $self->dim_indices('gene');
+  $self->{statistic_ids}      = $self->dim_indices('statistic');
+  
   bless $self, $class;
   return $self;
 }
@@ -212,7 +213,7 @@ sub _curate_variant_names {
   open my $in, "<", $file_gtex_snps;
   while (my $line = <$in>) {
     chomp $line;
-    $line =~ /^(rs\d+)\s/;
+    $line =~ /^(rs\d+)/;
     my $rsid = $1;
 
     if (! defined $rsid) {

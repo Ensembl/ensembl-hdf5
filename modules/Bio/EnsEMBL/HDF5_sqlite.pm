@@ -267,15 +267,15 @@ sub hdf5_fetch {
   my %hash = map { $_ => 1 } @constrained_dims;
   my @free_dims = grep { ! exists $hash{$_} } @$dim_names;
   my $free_dims_string = join(", ", @free_dims);
-  my $constraints_string;
+  my $constraints_string = '';
   if (scalar @constrained_dims) {
-    $constraints_string = "WHERE ".join(" AND ", map { "$_ = $constraints->{$_}" } @constrained_dims);
-  } else {
-    $constraints_string = "";
+    defined $constraints->{$_} or delete $constraints->{$_} for keys %{$constraints};
+    if( scalar(keys %{$constraints}) > 0 ) {
+      $constraints_string = "WHERE ".join(" AND ", map { "$_ = $constraints->{$_}" } @constrained_dims);
+    }
   }
 
   my $sql_command = "SELECT $free_dims_string FROM matrix $constraints_string";
-  warn $sql_command;
   my $sth = $sqlite->prepare($sql_command);
   $sth->execute;
   my @array = ();

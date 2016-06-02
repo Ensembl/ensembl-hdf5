@@ -259,6 +259,13 @@ sub hdf5_store {
 
 sub hdf5_fetch {
   my ($sqlite, $constraints) = @_;
+
+  # Remove null constraints
+  foreach my $key (keys %$constraints) {
+    if (!defined $constraints->{$key}) {
+      delete $constraints->{$key};
+    }
+  } 
   my $dim_names = _get_all_dim_names($sqlite);
   my $dim_labels = get_all_dim_labels($sqlite);
   push @$dim_names, "value";
@@ -275,7 +282,6 @@ sub hdf5_fetch {
   }
 
   my $sql_command = "SELECT $free_dims_string FROM matrix $constraints_string";
-  warn $sql_command;
   my $sth = $sqlite->prepare($sql_command);
   $sth->execute;
   my @array = ();

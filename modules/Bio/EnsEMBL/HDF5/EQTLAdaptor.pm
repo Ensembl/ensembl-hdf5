@@ -93,7 +93,7 @@ sub new {
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
     my $snp_max_length = `awk 'length(\$3) > max {max = length(\$3)} END {print max}' $curated_snp_id_file`;
-
+    chomp($snp_max_length);
     my $gene_stats = _fetch_gene_stats($core_db);
 
     $self = $class->SUPER::new(

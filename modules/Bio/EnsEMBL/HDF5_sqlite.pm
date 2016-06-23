@@ -38,7 +38,7 @@ use warnings;
 use Data::Dumper;
 
 use List::Util qw/ max /;
-
+use feature qw/say/;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 
 require Exporter;
@@ -65,7 +65,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw(
-  
+
 );
 
 our $VERSION = '0.01';
@@ -97,40 +97,46 @@ sub hdf5_create {
 
   # Create table for dim names
   my $max_dim_name_length = max(map(length, @dim_names));
-  my $sql_command = "
+  my $sql_ct_dim_n = "
   CREATE TABLE IF NOT EXISTS dim_names (
     name VARCHAR($max_dim_name_length)
   )
   ";
-  $sqlite->do($sql_command);
+  $sqlite->do($sql_ct_dim_n);
 
   # Store dim names
-  $sql_command = "INSERT INTO dim_names (name) VALUES (?)";
+  my $sql_i_dim_n = "INSERT INTO dim_names (name) VALUES (?)";
   $sqlite->db_handle->begin_work;
-  my $sth = $sqlite->prepare($sql_command);
+  my $sth = $sqlite->prepare($sql_i_dim_n );
   $sth->bind_param_array(1, \@dim_names);
   $sth->execute_array({});
   $sqlite->db_handle->commit;
 
   # Create table for dim labels
   foreach my $dim_name (keys %$dim_label_lengths) {
-    $sql_command = "
+    my $sql_ct_dim_l = "
     CREATE TABLE IF NOT EXISTS $dim_name (
       label VARCHAR($dim_label_lengths->{$dim_name})
     )
     ";
-    $sqlite->do($sql_command);
+    $sqlite->do($sql_ct_dim_l);
   }
 
   # Create table for main matrix
+  say Dumper($dim_label_lengths);
+  say Dumper(\@dim_names);
+  # die;
   my $column_descriptions = join(", ", map { $_." VARCHAR(".$dim_label_lengths->{$_}.")" } @dim_names);
-  $sql_command = "
+  my $sql_ct_matrix = "
   CREATE TABLE IF NOT EXISTS matrix (
     $column_descriptions,
     value FLOAT
   )
   ";
-  $sqlite->do($sql_command);
+  $sqlite->prepare($sql_ct_matrix);
+  say $sql_ct_matrix;
+  say ref($sqlite);
+  $sqlite->execute($sql_ct_matrix) or die "Can't execute SQL statement: $DBI::errstr\n";
   $sqlite->db_handle->disconnect;
 }
 
@@ -267,11 +273,14 @@ sub hdf5_fetch {
   my %hash = map { $_ => 1 } @constrained_dims;
   my @free_dims = grep { ! exists $hash{$_} } @$dim_names;
   my $free_dims_string = join(", ", @free_dims);
-  my $constraints_string;
+  my $constraints_string = '';
+
+  defined $constraints->{$_} or delete $constraints->{$_} for keys %{$constraints};
+
   if (scalar @constrained_dims) {
-    $constraints_string = "WHERE ".join(" AND ", map { "$_ = $constraints->{$_}" } @constrained_dims);
-  } else {
-    $constraints_string = "";
+    if( scalar(keys %{$constraints}) > 0 ) {
+      $constraints_string = "WHERE ".join(" AND ", map { "$_ = $constraints->{$_}" } @constrained_dims);
+    }
   }
 
   my $sql_command = "SELECT $free_dims_string FROM matrix $constraints_string";

@@ -68,9 +68,9 @@ use Data::Dumper;
 sub new {
   my $class = shift;
   my ($hdf5_file, $core_db, $variation_db,
-    $tissues, $statistics, $db_file, $snp_id_file) =
+    $tissues, $statistics, $db_file, $snp_id_file, $file_locations) =
   rearrange(['FILENAME','CORE_DB_ADAPTOR','VAR_DB_ADAPTOR',
-    'TISSUES','STATISTICS','DBFILE','SNP_IDS'], @_);
+    'TISSUES','STATISTICS','DBFILE','SNP_IDS', 'LOCATIONS'], @_);
 
   if (! defined $hdf5_file) {
     die("Cannot create HDF5 adaptor around undef filename!\n");
@@ -87,13 +87,21 @@ sub new {
   # my $cache = new Cache::FileCache();
   ## If creating a new database
   if (! -e $hdf5_file || -z $hdf5_file) {
-
+# say "HEre";
     say 'Creating a new DB (no hdf5 file passed or size 0)';
     my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $hdf5_file.".snp.ids");
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
     my $snp_max_length = `awk 'length(\$3) > max {max = length(\$3)} END {print max}' $curated_snp_id_file`;
+    chomp($snp_max_length);
+
+    my $location_count = `wc -l $file_locations | sed -e 's/ .*//'`;
+    chomp $location_count;
+    my $locations_max_length = `awk 'length(\$1) > max {max = length(\$1)} END {print max}' $file_locations`;
+    chomp($locations_max_length);
+    say $location_count;
+    say $locations_max_length;
 
     my $gene_stats = _fetch_gene_stats($core_db);
 
@@ -105,10 +113,12 @@ sub new {
         snp       => $snp_count,
         tissue    => scalar @$tissues,
         statistic => scalar @$statistics,
+        locations => $location_count,
 	      },
       -LABEL_LENGTHS => {
         gene      => $gene_stats->{max_length},
         snp       => $snp_max_length,
+        locations => $locations_max_length,
         tissue    => max(map(length, @$tissues)),
         statistic => max(map(length, @$statistics)),
 	    },
@@ -212,7 +222,7 @@ sub _curate_variant_names {
   open my $in, "<", $file_gtex_snps;
   while (my $line = <$in>) {
     chomp $line;
-    $line =~ /^(rs\d+)\s/;
+    $line =~ /^(rs\d+)/;
     my $rsid = $1;
 
     if (! defined $rsid) {

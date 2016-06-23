@@ -63,12 +63,19 @@ sub main {
             -var_db_adaptor => $registry->get_DBAdaptor('human', 'variation'),
   );
 
-  my $results = $eqtl_adaptor->fetch({gene => $options->{gene}, tissue => $options->{tissue}, snp => $options->{snp}, statistic => $options->{statistic}});
+  my $results = $eqtl_adaptor->fetch( {
+      gene        => $options->{gene},
+      tissue      => $options->{tissue},
+      snp         => $options->{snp},
+      statistic   => $options->{statistic},
+      chromosome  => $options->{chromosome},
+      position    => $options->{position},
+      });
   print scalar(@$results)."\n";
 
-  print join("\t", qw/tissue snp gene statistic value/)."\n";
+  print join("\t", qw/tissue snp gene statistic value chromosome position/)."\n";
   foreach my $result (@$results) {
-    foreach my $column (qw/tissue snp gene statistic value/) {
+    foreach my $column (qw/tissue snp gene statistic value chromosome position/) {
       if (defined $options->{$column}) {
         print "*$options->{$column}\t";
       } else {
@@ -84,8 +91,8 @@ sub main {
 sub get_options {
   my %options = ();
   GetOptions(\%options, "help=s", "host|h=s", "port|p=s", "user|u=s", "pass|p=s", "tissue=s", "gene=s", "snp=s", "statistic=s", "hdf5=s", "sqlite3|d=s");
-  if (defined $options{tissues} 
-      && defined $options{files} 
+  if (defined $options{tissues}
+      && defined $options{files}
       && (scalar @{$options{tissues}} != scalar @{$options{files}})) {
     die("You should provide as many tissue names as filenames!");
   }

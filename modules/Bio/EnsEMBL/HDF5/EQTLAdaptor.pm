@@ -68,9 +68,9 @@ use Data::Dumper;
 sub new {
   my $class = shift;
   my ($hdf5_file, $core_db, $variation_db,
-    $tissues, $statistics, $db_file, $snp_id_file, $file_locations) =
+    $tissues, $statistics, $db_file, $snp_id_file, $gene_ids) =
   rearrange(['FILENAME','CORE_DB_ADAPTOR','VAR_DB_ADAPTOR',
-    'TISSUES','STATISTICS','DBFILE','SNP_IDS', 'LOCATIONS'], @_);
+    'TISSUES','STATISTICS','DBFILE','SNP_IDS', 'GENE_IDS'], @_);
 
   if (! defined $hdf5_file) {
     die("Cannot create HDF5 adaptor around undef filename!\n");
@@ -87,23 +87,25 @@ sub new {
   # my $cache = new Cache::FileCache();
   ## If creating a new database
   if (! -e $hdf5_file || -z $hdf5_file) {
-# say "HEre";
     say 'Creating a new DB (no hdf5 file passed or size 0)';
     my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $hdf5_file.".snp.ids");
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
-    my $snp_max_length = `awk 'length(\$3) > max {max = length(\$3)} END {print max}' $curated_snp_id_file`;
+    my $snp_max_length = `awk 'length(\$4) > max {max = length(\$4)} END {print max}' $curated_snp_id_file`;
     chomp($snp_max_length);
 
-    my $location_count = `wc -l $file_locations | sed -e 's/ .*//'`;
-    chomp $location_count;
-    my $locations_max_length = `awk 'length(\$1) > max {max = length(\$1)} END {print max}' $file_locations`;
-    chomp($locations_max_length);
-    say $location_count;
-    say $locations_max_length;
-
-    my $gene_stats = _fetch_gene_stats($core_db);
+    my $gene_stats;
+    if (defined $gene_ids) {
+      my $gene_count = `wc -l $gene_ids | sed -e 's/ .*//'`;
+      chomp $gene_count;
+      my $gene_max_length = `awk 'length(\$1) > max {max = length(\$1)} END {print max}' $gene_ids`;
+      chomp($gene_max_length);
+      $gene_stats->{count} = $gene_count;
+      $gene_stats->{max_length} = $gene_max_length;
+    } else {
+      $gene_stats = _fetch_gene_stats($core_db);
+    }
 
     $self = $class->SUPER::new(
       -FILENAME   => $hdf5_file,
@@ -113,18 +115,20 @@ sub new {
         snp       => $snp_count,
         tissue    => scalar @$tissues,
         statistic => scalar @$statistics,
-        locations => $location_count,
 	      },
       -LABEL_LENGTHS => {
         gene      => $gene_stats->{max_length},
         snp       => $snp_max_length,
-        locations => $locations_max_length,
         tissue    => max(map(length, @$tissues)),
         statistic => max(map(length, @$statistics)),
 	    },
     );
-    $self->_store_gene_labels($core_db);
-    $self->_store_variation_labels($variation_db, $curated_snp_id_file);
+    if (defined $gene_ids) {
+      $self->_store_my_gene_labels($gene_ids);
+    } else {
+      $self->_store_gene_labels($core_db);
+    }
+    $self->_store_variation_labels($curated_snp_id_file);
     $self->store_dim_labels('tissue', $tissues);
     $self->store_dim_labels('statistic', $statistics);
     $self->index_tables;
@@ -173,6 +177,27 @@ sub _fetch_gene_stats {
   return {count => $count, max_length => $max_length};
 }
 
+=head2 _store_my_gene_labels
+
+  Counts all the genes and their max ID length throughout the database
+  Argument [1] : File with Gene Ids.
+
+=cut
+
+sub _store_my_gene_labels {
+  my ($self, $filename) = @_;
+
+  open my $file, "<", $filename;
+  my @labels= ();
+  while (my $line = <$file>) {
+    chomp $line;
+    push @labels, $line;
+  }
+  close $file;
+  $self->store_dim_labels('gene', \@labels);
+}
+
+
 =head2 _store_gene_labels
 
   Counts all the genes and their max ID length throughout the database
@@ -193,20 +218,16 @@ sub _store_gene_labels {
 }
 
 =head2 _curate_variant_names
-  $file_gtex_snps = list of unique IDs (rs or GTEX) parsed from GTEX file
-  $file_hdf5_snps = contains chr, pos, rsID, ID from $file_gtex_snps.
+  $snps_id_file = list of unique IDs (rs or GTEX) parsed from GTEX file
+  $file_hdf5_snps = contains chr, pos, rsID, ID from $snps_id_file.
                     sorted first by chr, then by pos
 
-  $filemname = eqtl.hdf5.gtex.snp.ids
-  GTEX4:
-  1       729679  rs4951859       rs4951859
-  GTEX6
-  1 30923 rs806731  1_30923_G_T_b37
-
+  Output:
+  $seq_region_name	$seq_region_start	$seq_region_end	$rs_id	$old_rs_id	$display_consequence
 =cut
 
 sub _curate_variant_names {
-  my ($variation_db, $file_gtex_snps, $file_hdf5_snps) = @_;
+  my ($variation_db, $snps_id_file, $file_hdf5_snps) = @_;
 
   if (-e $file_hdf5_snps && ! -z $file_hdf5_snps) {
     return $file_hdf5_snps;
@@ -218,15 +239,13 @@ sub _curate_variant_names {
   ## We start by storing all the variation labels
   ## unsorted into a temporary file
   my ($out, $temp) = tempfile;
-#  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
-  open my $in, "<", $file_gtex_snps;
-  while (my $line = <$in>) {
-    chomp $line;
-    $line =~ /^(rs\d+)/;
-    my $rsid = $1;
+#  die "Empty..." if(-e $snps_id_file and -z $snps_id_file);
+  open my $in, "<", $snps_id_file;
+  while (my $rsid = <$in>) {
+    chomp $rsid;
 
     if (! defined $rsid) {
-      die "Expect rsID (/^rs\\d+/), not $line";
+      die "Expect rsID (/^rs\\d+/), not $rsid";
     }
 
     my $variant = $va->fetch_by_name($rsid);
@@ -236,8 +255,8 @@ sub _curate_variant_names {
       next;
     }
     my $feature = $features->[0];
-    print $out join("\t", ($feature->seq_region_name, $feature->seq_region_start, $feature->variation_name, $line))."\n";
 
+    print $out join("\t", ($feature->seq_region_name, $feature->seq_region_start, $feature->seq_region_end, $feature->variation_name, $rsid, $feature->display_consequence))."\n";
   }
 
   `sort -k1,1 -k2,2n $temp > $file_hdf5_snps`;
@@ -247,19 +266,18 @@ sub _curate_variant_names {
   return $file_hdf5_snps;
 }
 
-
 =head2 _store_variation_labels
 
   Counts all the variations and their max ID length throughout the database
-  Argument [1] : Bio::EnsEMBL::DBSQL::DBAdaptor
-  Argument [2] : Bio::EnsEMBL::Variation::DBSQL::DBAdaptor
+  Argument [1] : File location
 
 =cut
 
 sub _store_variation_labels {
-  my ($self, $variation_db, $snp_id_file) = @_;
+  my ($self, $snp_id_file) = @_;
 
   $self->{snp_ids} = {};
+  $self->_create_variant_web_table;
 
   ## We then read the sorted file
   print "Streaming variation IDs from database\n";
@@ -267,13 +285,12 @@ sub _store_variation_labels {
   my @labels = ();
   while (my $line = <$file2>) {
     chomp $line;
-    my @items = split("\t", $line);
-    my $name = $items[2];
-    my $given_name = $items[3];
+    my ($chrom, $start, $end, $name, $given_name, $consequence) = split("\t", $line);
     if (!($given_name eq $name)) {
       $self->{snp_ids}{$given_name} = $name;
     }
     push @labels, $name;
+    $self->_store_variation_web_data($name, $chrom, $start, $end, $consequence);
 
     # If buffer full, push into SQLite and HDF5 storage
     if (scalar @labels > 10000) {
@@ -287,6 +304,41 @@ sub _store_variation_labels {
     $self->store_dim_labels('snp', \@labels);
   }
 }
+
+=head2 _create_variant_web_table
+
+  Creates table for variant web data
+
+=cut
+
+sub _create_variant_web_table {
+  my ($self) = @_;
+
+  my $sql = "
+  CREATE TABLE IF NOT EXISTS snp_web (
+    rs_id VARCHAR(20) UNIQUE,
+    seq_region_name VARCHAR(100),
+    seq_region_start INTEGER,
+    seq_region_end INTEGER,
+    display_consequence VARCHAR(50)
+  )
+  ";
+  $self->{sqlite3}->do($sql);
+}
+
+=head2 _store_variation_web_data
+
+  Stores data for web speedup
+  Arg[1]: Bio::EnsEMBL::Variation::VariationFeature
+
+=cut
+
+sub _store_variation_web_data {
+  my ($self, $name, $seq_region_name, $seq_region_start, $seq_region_end, $display_consequence) = @_;
+  # TODO batch entries into DB
+  my $sql = "INSERT INTO snp_web VALUES (\"$name\", \"$seq_region_name\", $seq_region_start, $seq_region_end, \"$display_consequence\");";
+  my $sth = $self->{sqlite3}->do($sql);
+} 
 
 =head2 _load_snp_aliases
 
@@ -378,7 +430,6 @@ sub _convert_coords {
       printf("CONNECTING TO CORE SERVER $coords->{gene}\n");
       $gene = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene})->[0]->stable_id;
     }
-    print "$gene\n";
     my $gene_id = $self->{gene_ids}{$gene};
 
     if (!defined $gene_id) {
@@ -430,9 +481,54 @@ sub _convert_coords {
   return $res;
 }
 
+=head2 fetch_all_tissues
+
+  Returns all known tissue identifiers
+  Returntype : List ref of strings
+
+=cut
+
 sub fetch_all_tissues {
   my ($self) = @_;
   return $self->get_dim_labels("tissue");
+}
+
+=head2 fetch
+
+  Returns all data subject to constraints
+  Arg[1]: hash ref of { $dim => $value } constraints
+  Arg[2]: Bool, true if return value augmented with data for web display (snp data and snp consequence)
+  Returntype : List ref of hashrefs of {$dim => $value} data points
+
+=cut
+
+sub fetch{
+  my ($self, $constraints, $web) = @_;
+  my $res = $self->SUPER::fetch($constraints);
+  if (defined $web && ! exists $constraints->{'snp'}) {
+    foreach my $correlation (@$res) {
+      my ($seq_region_name, $seq_region_start, $seq_region_end, $display_consequence) = @{$self->_fetch_web_data($correlation->{'snp'})};
+      $correlation->{seq_region_name} = $seq_region_name;
+      $correlation->{seq_region_start} = $seq_region_start;
+      $correlation->{seq_region_end} = $seq_region_end;
+      $correlation->{display_consequence} = $display_consequence;
+    }
+  }
+  return $res;
+}
+
+=head2 _fetch_web_data
+
+  Returns web data for rsId snp
+  Arg[1]: rsID
+  Returntype : List ref of location string, consequence string
+
+=cut
+
+sub _fetch_web_data {
+  my ($self, $rsId) = @_;
+  my $sql = "SELECT seq_region_name, seq_region_start, seq_region_end, display_consequence FROM snp_web WHERE rs_id = \'$rsId\'";
+  return $self->{sqlite3}->db_handle->selectall_arrayref($sql)->[0];
 }
 
 1;

@@ -172,6 +172,7 @@ sub _create_sqlite3_file {
 sub _create_sqlite3_table {
   my ($self, $dim_name) = @_;
 
+  print "CREATING table $dim_name\n";
   my $sql = "
   CREATE TABLE IF NOT EXISTS $dim_name (
     hdf5_index	INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -228,10 +229,11 @@ sub index_tables {
   my $sth = $self->{sqlite3}->db_handle->table_info('%','%','%','TABLE');
   while (my @row = $sth->fetchrow_array) {
     my $table = $row[2];
-    if (! ($table eq 'sqlite_sequence')) {
+    if (! (($table eq 'snp_web') || ($table eq 'sqlite_sequence'))) {
       $self->{sqlite3}->do("CREATE INDEX idx_$table ON $table (external_id)");
     }
   }
+  $self->{sqlite3}->do("CREATE INDEX idx_snp_web ON snp_web (rs_id)");
 }
 
 =head2 get_indiced_hashref

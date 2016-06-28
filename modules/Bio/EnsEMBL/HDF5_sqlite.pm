@@ -57,9 +57,11 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
   hdf5_create
   hdf5_fetch
   hdf5_get_dim_labels
+  hdf5_get_all_dim_labels
   hdf5_open
   hdf5_store
   hdf5_store_dim_labels
+  hdf5_set_log
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
@@ -123,8 +125,6 @@ sub hdf5_create {
   }
 
   # Create table for main matrix
-  say Dumper($dim_label_lengths);
-  say Dumper(\@dim_names);
   # die;
   my $column_descriptions = join(", ", map { $_." VARCHAR(".$dim_label_lengths->{$_}.")" } @dim_names);
   my $sql_ct_matrix = "
@@ -133,10 +133,8 @@ sub hdf5_create {
     value FLOAT
   )
   ";
-  $sqlite->prepare($sql_ct_matrix);
-  say $sql_ct_matrix;
-  say ref($sqlite);
-  $sqlite->execute($sql_ct_matrix) or die "Can't execute SQL statement: $DBI::errstr\n";
+  my $sth2 = $sqlite->prepare($sql_ct_matrix);
+  $sth2->execute() or die "Can't execute SQL statement: $DBI::errstr\n";
   $sqlite->db_handle->disconnect;
 }
 
@@ -198,7 +196,7 @@ sub _get_all_dim_names {
   return \@names;
 }
 
-=head2 get_all_dim_labels
+=head2 hdf5_get_all_dim_labels
 
   Get all labels associated to all dimensions
   Argument [1]: Bio::EnsEMBL::DBSQL::DBConnection
@@ -206,7 +204,7 @@ sub _get_all_dim_names {
 
 =cut
 
-sub get_all_dim_labels {
+sub hdf5_get_all_dim_labels {
   my ($sqlite) = @_;
   my %hash = map { $_ => hdf5_get_dim_labels($sqlite, $_) } @{_get_all_dim_names($sqlite)};
   return \%hash;
@@ -266,7 +264,7 @@ sub hdf5_store {
 sub hdf5_fetch {
   my ($sqlite, $constraints) = @_;
   my $dim_names = _get_all_dim_names($sqlite);
-  my $dim_labels = get_all_dim_labels($sqlite);
+  my $dim_labels = hdf5_get_all_dim_labels($sqlite);
   push @$dim_names, "value";
 
   my @constrained_dims = keys %$constraints;
@@ -284,7 +282,6 @@ sub hdf5_fetch {
   }
 
   my $sql_command = "SELECT $free_dims_string FROM matrix $constraints_string";
-  warn $sql_command;
   my $sth = $sqlite->prepare($sql_command);
   $sth->execute;
   my @array = ();

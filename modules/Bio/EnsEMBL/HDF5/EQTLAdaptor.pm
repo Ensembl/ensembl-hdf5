@@ -479,10 +479,12 @@ sub fetch{
     foreach my $correlation (@$res) {
       my ($rs_id, $seq_region_name, $seq_region_start, $seq_region_end, $display_consequence) = split("\t", $correlation->{snp});
       $correlation->{snp} = $rs_id;
-      $correlation->{seq_region_name} = $seq_region_name;
-      $correlation->{seq_region_start} = $seq_region_start;
-      $correlation->{seq_region_end} = $seq_region_end;
-      $correlation->{display_consequence} = $display_consequence;
+      if ($web) {
+        $correlation->{seq_region_name} = $seq_region_name;
+        $correlation->{seq_region_start} = $seq_region_start;
+        $correlation->{seq_region_end} = $seq_region_end;
+        $correlation->{display_consequence} = $display_consequence;
+      }
     }
   }
   return $res;

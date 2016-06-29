@@ -229,11 +229,10 @@ sub index_tables {
   my $sth = $self->{sqlite3}->db_handle->table_info('%','%','%','TABLE');
   while (my @row = $sth->fetchrow_array) {
     my $table = $row[2];
-    if (! (($table eq 'snp_web') || ($table eq 'sqlite_sequence'))) {
+    if (! ($table eq 'sqlite_sequence')) {
       $self->{sqlite3}->do("CREATE INDEX idx_$table ON $table (external_id)");
     }
   }
-  $self->{sqlite3}->do("CREATE INDEX idx_snp_web ON snp_web (rs_id)");
 }
 
 =head2 get_indiced_hashref

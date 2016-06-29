@@ -48,6 +48,9 @@ use feature qw/say/;
 
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
 use Bio::EnsEMBL::Utils::Exception qw/throw/;
+use Bio::EnsEMBL::HDF5_sqlite qw ( 
+      hdf5_store_dim_labels
+    );
 
 # use Cache::FileCache;
 # DBI->trace(1);
@@ -92,7 +95,7 @@ sub new {
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
-    my $snp_max_length = `awk 'length(\$4) > max {max = length(\$4)} END {print max}' $curated_snp_id_file`;
+    my $snp_max_length = `awk 'length(\$0) > max {max = length(\$0)} END {print max}' $curated_snp_id_file`;
     chomp($snp_max_length);
 
     my $gene_stats;
@@ -277,7 +280,6 @@ sub _store_variation_labels {
   my ($self, $snp_id_file) = @_;
 
   $self->{snp_ids} = {};
-  $self->_create_variant_web_table;
 
   ## We then read the sorted file
   print "Streaming variation IDs from database\n";
@@ -289,56 +291,24 @@ sub _store_variation_labels {
     if (!($given_name eq $name)) {
       $self->{snp_ids}{$given_name} = $name;
     }
-    push @labels, $name;
-    $self->_store_variation_web_data($name, $chrom, $start, $end, $consequence);
+    push @labels, join("\t", ($name, $chrom, $start, $end, $consequence));
 
     # If buffer full, push into SQLite and HDF5 storage
     if (scalar @labels > 10000) {
-       $self->store_dim_labels('snp', \@labels);
+       hdf5_store_dim_labels($self->{hdf5}, 'snp', \@labels);
+       my @rsIds = map {my @array = split("\t", $_); $array[0] } @labels; 
+       $self->_insert_into_sqlite3_table('snp', \@rsIds);
        @labels = ();
     }
   }
 
   # Flush out remaining buffer
   if (scalar @labels) {
-    $self->store_dim_labels('snp', \@labels);
+    hdf5_store_dim_labels($self->{hdf5}, 'snp', \@labels);
+    my @rsIds = map {my @array = split("\t", $_); $array[0] } @labels; 
+    $self->_insert_into_sqlite3_table('snp', \@rsIds);
   }
 }
-
-=head2 _create_variant_web_table
-
-  Creates table for variant web data
-
-=cut
-
-sub _create_variant_web_table {
-  my ($self) = @_;
-
-  my $sql = "
-  CREATE TABLE IF NOT EXISTS snp_web (
-    rs_id VARCHAR(20) UNIQUE,
-    seq_region_name VARCHAR(100),
-    seq_region_start INTEGER,
-    seq_region_end INTEGER,
-    display_consequence VARCHAR(50)
-  )
-  ";
-  $self->{sqlite3}->do($sql);
-}
-
-=head2 _store_variation_web_data
-
-  Stores data for web speedup
-  Arg[1]: Bio::EnsEMBL::Variation::VariationFeature
-
-=cut
-
-sub _store_variation_web_data {
-  my ($self, $name, $seq_region_name, $seq_region_start, $seq_region_end, $display_consequence) = @_;
-  # TODO batch entries into DB
-  my $sql = "INSERT INTO snp_web VALUES (\"$name\", \"$seq_region_name\", $seq_region_start, $seq_region_end, \"$display_consequence\");";
-  my $sth = $self->{sqlite3}->do($sql);
-} 
 
 =head2 _load_snp_aliases
 
@@ -505,9 +475,10 @@ sub fetch_all_tissues {
 sub fetch{
   my ($self, $constraints, $web) = @_;
   my $res = $self->SUPER::fetch($constraints);
-  if (defined $web && ! exists $constraints->{'snp'}) {
+  if (! exists $constraints->{snp}) {
     foreach my $correlation (@$res) {
-      my ($seq_region_name, $seq_region_start, $seq_region_end, $display_consequence) = @{$self->_fetch_web_data($correlation->{'snp'})};
+      my ($rs_id, $seq_region_name, $seq_region_start, $seq_region_end, $display_consequence) = split("\t", $correlation->{snp});
+      $correlation->{snp} = $rs_id;
       $correlation->{seq_region_name} = $seq_region_name;
       $correlation->{seq_region_start} = $seq_region_start;
       $correlation->{seq_region_end} = $seq_region_end;
@@ -515,20 +486,6 @@ sub fetch{
     }
   }
   return $res;
-}
-
-=head2 _fetch_web_data
-
-  Returns web data for rsId snp
-  Arg[1]: rsID
-  Returntype : List ref of location string, consequence string
-
-=cut
-
-sub _fetch_web_data {
-  my ($self, $rsId) = @_;
-  my $sql = "SELECT seq_region_name, seq_region_start, seq_region_end, display_consequence FROM snp_web WHERE rs_id = \'$rsId\'";
-  return $self->{sqlite3}->db_handle->selectall_arrayref($sql)->[0];
 }
 
 1;

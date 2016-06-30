@@ -56,7 +56,6 @@ my $eqtl_adaptor = Bio::EnsEMBL::HDF5::EQTLAdaptor->new(
 	-var_db_adaptor   => $registry->get_DBAdaptor('human', 'variation'),
 	-tissues          => ['arm'],
 	-statistics       => ['beta','p-value'],
-	-dbfile           => 'test.sqlite3',
 	-snp_ids          => 'Whole_Blood.snps.txt',
 	-gene_ids         => 'Whole_Blood.genes.txt',
 );
@@ -78,6 +77,13 @@ close $fh;
 
 $eqtl_adaptor->store(\@data_points);
 
+$eqtl_adaptor->close;
+
+$eqtl_adaptor = Bio::EnsEMBL::HDF5::EQTLAdaptor->new(
+	-filename         => 'test.hd5',
+	-core_db_adaptor  => $registry->get_DBAdaptor('human', 'core'),
+	-var_db_adaptor   => $registry->get_DBAdaptor('human', 'variation'),
+);
 print Dumper($eqtl_adaptor->fetch({gene => "ENSG00000223972"}));
 print Dumper($eqtl_adaptor->fetch({gene => "ENSG00000223972"}, 1));
 print Dumper($eqtl_adaptor->fetch({gene => "ENSG00000223972", tissue => 'arm'}, 1));

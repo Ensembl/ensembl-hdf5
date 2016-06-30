@@ -48,7 +48,7 @@ use feature qw/say/;
 
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
 use Bio::EnsEMBL::Utils::Exception qw/throw/;
-use Bio::EnsEMBL::HDF5_sqlite qw ( 
+use Bio::EnsEMBL::HDF5_sqlite qw (
       hdf5_store_dim_labels
     );
 
@@ -87,7 +87,6 @@ sub new {
   }
 
   my $self;
-  # my $cache = new Cache::FileCache();
   ## If creating a new database
   if (! -e $hdf5_file || -z $hdf5_file) {
     say 'Creating a new DB (no hdf5 file passed or size 0)';
@@ -95,6 +94,7 @@ sub new {
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
+
     my $snp_max_length = `awk 'length(\$0) > max {max = length(\$0)} END {print max}' $curated_snp_id_file`;
     chomp($snp_max_length);
 
@@ -136,16 +136,18 @@ sub new {
     $self->store_dim_labels('statistic', $statistics);
     $self->index_tables;
     copy($temp, $db_file);
+    $self->{variation_adaptor}  = $variation_db->get_adaptor("variation");
+    $self->{gene_adaptor}       = $core_db->get_adaptor("gene");
   } else {
+    say "$hdf5_file";
     $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $temp);
     $self->{hdf5_file} = $hdf5_file;
   }
 
-  $self->{tissue_ids} = $self->dim_indices('tissue');
-  $self->{gene_ids} = $self->dim_indices('gene');
-  $self->{statistic_ids} = $self->dim_indices('statistic');
-  $self->{variation_adaptor} = $variation_db->get_adaptor("variation");
-  $self->{gene_adaptor} = $core_db->get_adaptor("gene");
+  $self->{tissue_ids}         = $self->dim_indices('tissue');
+  $self->{gene_ids}           = $self->dim_indices('gene');
+  $self->{statistic_ids}      = $self->dim_indices('statistic');
+
   bless $self, $class;
   return $self;
 }
@@ -242,11 +244,12 @@ sub _curate_variant_names {
   ## We start by storing all the variation labels
   ## unsorted into a temporary file
   my ($out, $temp) = tempfile;
-#  die "Empty..." if(-e $snps_id_file and -z $snps_id_file);
-  open my $in, "<", $snps_id_file;
-  while (my $rsid = <$in>) {
-    chomp $rsid;
-
+#  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
+  open my $in, "<", $file_gtex_snps;
+  while (my $line = <$in>) {
+    chomp $line;
+    $line =~ /^(rs\d+)/;
+    my $rsid = $1;
     if (! defined $rsid) {
       die "Expect rsID (/^rs\\d+/), not $rsid";
     }
@@ -296,7 +299,7 @@ sub _store_variation_labels {
     # If buffer full, push into SQLite and HDF5 storage
     if (scalar @labels > 10000) {
        hdf5_store_dim_labels($self->{hdf5}, 'snp', \@labels);
-       my @rsIds = map {my @array = split("\t", $_); $array[0] } @labels; 
+       my @rsIds = map {my @array = split("\t", $_); $array[0] } @labels;
        $self->_insert_into_sqlite3_table('snp', \@rsIds);
        @labels = ();
     }
@@ -305,7 +308,7 @@ sub _store_variation_labels {
   # Flush out remaining buffer
   if (scalar @labels) {
     hdf5_store_dim_labels($self->{hdf5}, 'snp', \@labels);
-    my @rsIds = map {my @array = split("\t", $_); $array[0] } @labels; 
+    my @rsIds = map {my @array = split("\t", $_); $array[0] } @labels;
     $self->_insert_into_sqlite3_table('snp', \@rsIds);
   }
 }

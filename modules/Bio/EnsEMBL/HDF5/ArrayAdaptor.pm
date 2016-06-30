@@ -293,6 +293,7 @@ sub _convert_coords {
   foreach my $key (keys %$coords) {
     $numerical_coords->{$key} = $self->_get_numerical_value($key, $coords->{$key});
   }
+  defined $numerical_coords->{$_} or delete $numerical_coords->{$_} for keys %{$numerical_coords};
   return $numerical_coords;
 }
 
@@ -338,17 +339,11 @@ sub get_dim_labels {
 
 sub fetch {
   my ($self, $constraints) = @_;
-  my $local_constraints = {};
-  foreach my $key (keys %$constraints) {
-    if (defined $constraints->{$key}) {
-      $local_constraints->{$key} = $constraints->{$key};
-    }
-  }
-  # An undef numberical value here ({'gene' => undef };) causes XS to throw "Use of uninitialized value in subroutine entry"
-  #
-  no warnings;
+
+  my $local_constraints = $constraints;
+  defined $constraints->{$_} or delete $constraints->{$_} for keys %{$constraints};
+
   my $temp = hdf5_fetch($self->{hdf5}, $self->_convert_coords($local_constraints));
-  use warnings;
   return $temp;
 }
 

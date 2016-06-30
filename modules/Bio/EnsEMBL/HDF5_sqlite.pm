@@ -263,6 +263,13 @@ sub hdf5_store {
 
 sub hdf5_fetch {
   my ($sqlite, $constraints) = @_;
+
+  # Remove null constraints
+  foreach my $key (keys %$constraints) {
+    if (!defined $constraints->{$key}) {
+      delete $constraints->{$key};
+    }
+  }
   my $dim_names = _get_all_dim_names($sqlite);
   my $dim_labels = hdf5_get_all_dim_labels($sqlite);
   push @$dim_names, "value";
@@ -272,10 +279,8 @@ sub hdf5_fetch {
   my @free_dims = grep { ! exists $hash{$_} } @$dim_names;
   my $free_dims_string = join(", ", @free_dims);
   my $constraints_string = '';
-
-  defined $constraints->{$_} or delete $constraints->{$_} for keys %{$constraints};
-
   if (scalar @constrained_dims) {
+    defined $constraints->{$_} or delete $constraints->{$_} for keys %{$constraints};
     if( scalar(keys %{$constraints}) > 0 ) {
       $constraints_string = "WHERE ".join(" AND ", map { "$_ = $constraints->{$_}" } @constrained_dims);
     }

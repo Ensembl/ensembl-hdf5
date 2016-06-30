@@ -112,9 +112,6 @@ sub new {
     my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $snp_data_file);
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
-    if ($snp_count == 0) {
-	    die "File $curated_snp_id_file empty?";
-    }
     chomp $snp_count;
 
     my $snp_max_length = `awk 'length(\$0) > max {max = length(\$0)} END {print max}' $curated_snp_id_file`;
@@ -268,7 +265,6 @@ sub _curate_variant_names {
 #  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
   open my $in, "<", $snps_id_file;
   while (my $line = <$in>) {
-    say $line;
     chomp $line;
     $line =~ /^(rs\d+)/;
     my $rsid = $1;
@@ -280,7 +276,6 @@ sub _curate_variant_names {
 
     my $features = $variant->get_all_VariationFeatures;
     if (! scalar @$features) {
-      print "No eatures for $rsid\n";
       next;
     }
     my $feature = $features->[0];

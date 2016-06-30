@@ -103,13 +103,18 @@ sub new {
   # If not hdf5 sqlite3 file has provided, create one using base of hdf5 file
   $db_file ||= $hdf5_file . ".sqlite3";
 
+  my $snp_data_file = $hdf5_file.".snp.ids";
+
   my $self;
   ## If creating a new database
   if (! -e $hdf5_file || -z $hdf5_file) {
     say 'Creating a new DB (no hdf5 file passed or size 0)';
-    my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $hdf5_file.".snp.ids");
+    my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $snp_data_file);
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
+    if ($snp_count == 0) {
+	    die "File $curated_snp_id_file empty?";
+    }
     chomp $snp_count;
 
     my $snp_max_length = `awk 'length(\$0) > max {max = length(\$0)} END {print max}' $curated_snp_id_file`;
@@ -155,6 +160,7 @@ sub new {
   } else {
     $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $db_file);
     $self->{hdf5_file} = $hdf5_file;
+    $self->_load_snp_aliases($snp_data_file);
   }
 
   $self->{variation_adaptor}  = $variation_db->get_adaptor("variation");
@@ -262,6 +268,7 @@ sub _curate_variant_names {
 #  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
   open my $in, "<", $snps_id_file;
   while (my $line = <$in>) {
+    say $line;
     chomp $line;
     $line =~ /^(rs\d+)/;
     my $rsid = $1;
@@ -273,6 +280,7 @@ sub _curate_variant_names {
 
     my $features = $variant->get_all_VariationFeatures;
     if (! scalar @$features) {
+      print "No eatures for $rsid\n";
       next;
     }
     my $feature = $features->[0];
@@ -331,23 +339,24 @@ sub _store_variation_labels {
 =head2 _load_snp_aliases
 
   Reads off list of SNP id replacements
-  Argument [1] : Bio::EnsEMBL::DBSQL::DBAdaptor
-  Argument [2] : Bio::EnsEMBL::Variation::DBSQL::DBAdaptor
+  Argument [1] : File location
+  Format
+  $seq_region_name	$seq_region_start	$seq_region_end	$rs_id	$old_rs_id	$display_consequence
 
 =cut
 
 sub _load_snp_aliases {
-  my ($self) = @_;
+  my ($self, $filename) = @_;
 
   $self->{snp_ids} = {};
 
   ## We then read the sorted file
-  open my $file, "<", $self->{hdf5_file}.".snp.ids";
+  open my $file, "<", $filename;
   while (my $line = <$file>) {
     chomp $line;
     my @items = split("\t", $line);
-    my $name = $items[2];
-    my $given_name = $items[3];
+    my $name = $items[3];
+    my $given_name = $items[4];
     if (!($given_name eq $name)) {
       $self->{snp_ids}{$given_name} = $name;
     }
@@ -388,9 +397,6 @@ sub _convert_coords {
   my ($gene, $snp, $tissue, $statistic);
 
   if (defined $coords->{snp}) {
-    if (! defined $self->{snp_ids}) {
-	    $self->_load_snp_aliases;
-    }
     if (defined $self->{snp_ids} && exists $self->{snp_ids}{$coords->{snp}}) {
        $snp = $self->_get_numerical_value('snp', $self->{snp_ids}{$coords->{snp}});
     } else {

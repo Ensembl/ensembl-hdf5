@@ -159,14 +159,14 @@ sub new {
     $self->store_dim_labels('statistic', $statistics);
     $self->index_tables;
     copy($temp, $db_file);
-    $self->{variation_adaptor}  = $variation_db->get_adaptor("variation");
-    $self->{gene_adaptor}       = $core_db->get_adaptor("gene");
   } else {
     say "$hdf5_file";
     $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $temp);
     $self->{hdf5_file} = $hdf5_file;
   }
 
+  $self->{variation_adaptor}  = $variation_db->get_adaptor("variation");
+  $self->{gene_adaptor}       = $core_db->get_adaptor("gene");
   $self->{tissue_ids}         = $self->dim_indices('tissue');
   $self->{gene_ids}           = $self->dim_indices('gene');
   $self->{statistic_ids}      = $self->dim_indices('statistic');

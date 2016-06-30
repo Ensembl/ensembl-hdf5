@@ -75,10 +75,8 @@ use Bio::EnsEMBL::Utils::Exception qw/throw/;
    }
  }
 
-
-# use Cache::FileCache;
-# DBI->trace(1);
 use Data::Dumper;
+
 =head2 new
 
     Constructor
@@ -155,7 +153,6 @@ sub new {
     $self->store_dim_labels('statistic', $statistics);
     $self->index_tables;
   } else {
-    say "$hdf5_file";
     $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $db_file);
     $self->{hdf5_file} = $hdf5_file;
   }

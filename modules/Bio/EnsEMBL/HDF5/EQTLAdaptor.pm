@@ -48,9 +48,32 @@ use feature qw/say/;
 
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
 use Bio::EnsEMBL::Utils::Exception qw/throw/;
-use Bio::EnsEMBL::HDF5_sqlite qw (
-      hdf5_store_dim_labels
-    );
+
+ BEGIN {
+   eval {require Bio::EnsEMBL::HDF5};
+   if ($@) {
+     eval {
+       say "Could not load HDF5 Adaptor. Trying SQLite alternative";
+       require Bio::EnsEMBL::HDF5_sqlite;
+     };
+     if($@){
+       die "Could not load any adaptor";
+     }
+     else{
+       say "UsingHDF5_sqlite";
+       use Bio::EnsEMBL::HDF5_sqlite qw(
+         hdf5_store_dim_labels
+       );
+     }
+   }
+   else {
+     say "Using HDF5";
+     use Bio::EnsEMBL::HDF5 qw (
+       hdf5_store_dim_labels
+     );
+   }
+ }
+
 
 # use Cache::FileCache;
 # DBI->trace(1);

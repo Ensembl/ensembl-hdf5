@@ -268,7 +268,7 @@ sub _curate_variant_names {
   ## unsorted into a temporary file
   my ($out, $temp) = tempfile;
 #  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
-  open my $in, "<", $file_hdf5_snps;
+  open my $in, "<", $snps_id_file;
   while (my $line = <$in>) {
     chomp $line;
     $line =~ /^(rs\d+)/;

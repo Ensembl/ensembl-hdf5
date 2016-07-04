@@ -474,6 +474,7 @@ sub _convert_coords {
   if (exists $coords->{value}) {
     $res->{value} = $coords->{value};
   }
+
   return $res;
 }
 
@@ -499,16 +500,19 @@ sub fetch_all_tissues {
 =cut
 
 sub fetch{
-  my ($self, $constraints, $web) = @_;
+  my ($self, $constraints) = @_;
   my $res = $self->SUPER::fetch($constraints);
-  if (! exists $constraints->{snp}) {
-    foreach my $correlation (@$res) {
+  foreach my $correlation (@$res) {
+    if (! exists $constraints->{snp}) {
       my ($rs_id, $seq_region_name, $seq_region_start, $seq_region_end, $display_consequence) = split("\t", $correlation->{snp});
-      $correlation->{snp} = $rs_id;
-      $correlation->{seq_region_name} = $seq_region_name;
-      $correlation->{seq_region_start} = $seq_region_start;
-      $correlation->{seq_region_end} = $seq_region_end;
+      $correlation->{snp}                 = $rs_id;
+      $correlation->{seq_region_name}     = $seq_region_name;
+      $correlation->{seq_region_start}    = $seq_region_start;
+      $correlation->{seq_region_end}      = $seq_region_end;
       $correlation->{display_consequence} = $display_consequence;
+    }
+    if(!defined $correlation->{statistic} or  $correlation->{statistic} eq 'p-value'){
+      $correlation->{minus_log10_p_value} = -1*( log($correlation->{value})/log(10) );
     }
   }
   return $res;

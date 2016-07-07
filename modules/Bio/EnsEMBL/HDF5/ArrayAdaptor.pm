@@ -54,7 +54,7 @@ use Data::Dumper;
      }
      else{
        say "UsingHDF5_sqlite";
-       use Bio::EnsEMBL::HDF5_sqlite qw(
+       Bio::EnsEMBL::HDF5_sqlite->import( qw(
          hdf5_close
          hdf5_create
          hdf5_fetch
@@ -62,12 +62,12 @@ use Data::Dumper;
          hdf5_open
          hdf5_store
          hdf5_store_dim_labels
-       );
+       ));
      }
    }
    else {
      say "Using HDF5";
-     use Bio::EnsEMBL::HDF5 qw (
+     Bio::EnsEMBL::HDF5->import( qw (
        hdf5_close
        hdf5_create
        hdf5_fetch
@@ -75,7 +75,7 @@ use Data::Dumper;
        hdf5_open
        hdf5_store
        hdf5_store_dim_labels
-     );
+     ));
    }
  }
 

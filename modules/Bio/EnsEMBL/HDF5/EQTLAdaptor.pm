@@ -44,7 +44,6 @@ use base qw( Bio::EnsEMBL::HDF5::ArrayAdaptor );
 use POSIX qw/ strftime /;
 use File::Copy qw/ copy /;
 use List::Util qw/reduce max/;
-use File::Temp qw/ tempfile /;
 use feature qw/say/;
 
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;
@@ -104,11 +103,6 @@ sub new {
   }
   # If not hdf5 sqlite3 file has provided, create one using base of hdf5 file
   $db_file ||= $hdf5_file . ".sqlite3";
-  my ($fh, $temp) = tempfile;
-
-  if (-e $db_file) {
-    copy($db_file, $temp);
-  }
 
   my $self;
   ## If creating a new database
@@ -136,7 +130,7 @@ sub new {
 
     $self = $class->SUPER::new(
       -FILENAME   => $hdf5_file,
-      -DBNAME     => $temp,
+      -DBNAME     => $db_file,
       -SIZES      => {
         gene      => $gene_stats->{count},
         snp       => $snp_count,
@@ -159,10 +153,9 @@ sub new {
     $self->store_dim_labels('tissue', $tissues);
     $self->store_dim_labels('statistic', $statistics);
     $self->index_tables;
-    copy($temp, $db_file);
   } else {
     say "$hdf5_file";
-    $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $temp);
+    $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $db_file);
     $self->{hdf5_file} = $hdf5_file;
   }
 

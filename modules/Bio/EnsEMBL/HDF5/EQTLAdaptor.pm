@@ -397,13 +397,16 @@ sub _convert_coords {
     } else {
        $snp = $self->_get_numerical_value('snp', $coords->{snp});
     }
-    if (! defined $snp) {
+    if ((! defined $snp) && (! exists $self->{snp_ids}{$coords->{snp}})) {
       printf("CONNECTING TO VARIANT SERVER $coords->{snp}\n");
-      my $EnsemblSnp = $self->{variation_adaptor}->fetch_by_name($coords->{snp});
-      if (!defined $EnsemblSnp) {
+      my $variant = $self->{variation_adaptor}->fetch_by_name($coords->{snp});
+      if (!defined $variant) {
+        $self->{snp_ids}{$coords->{snp}} = undef;
         die("No SNP or variant with name $coords->{snp}\n");
       }
-      $snp = $self->_get_numerical_value('snp', $EnsemblSnp->name);
+      printf("REAL NAME IS ".$variant->name."\n");
+      $self->{snp_ids}{$coords->{snp}} = $variant->name;
+      $snp = $self->_get_numerical_value('snp', $variant->name);
     }
 
     if (! defined $snp) {
@@ -412,28 +415,36 @@ sub _convert_coords {
   }
 
   if (defined $coords->{gene}) {
+    my $gene_name;
     ## Hacky regexp of Ensembl IDs
     if ($coords->{gene} =~ /ENS[A-Z]+[0-9]{11}/) {
-      $gene = $coords->{gene};
+      $gene_name = $coords->{gene};
     } else {
       printf("CONNECTING TO CORE SERVER $coords->{gene}\n");
-      $gene = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene})->[0]->stable_id;
+      $gene_name = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene})->[0]->stable_id;
+      printf("REAL NAME IS $gene_name\n");
     }
-    my $gene_id = $self->{gene_ids}{$gene};
 
-    if (!defined $gene_id) {
-      printf("CONNECTING TO CORE SERVER2 $gene\n");
-      my $EnsemblGene = $self->{gene_adaptor}->fetch_by_stable_id($gene);
-      if (!defined $EnsemblGene) {
-        die("No gene with name $gene\n");
+    if (! exists $self->{gene_ids}{$gene_name}) {
+      printf("CONNECTING TO CORE SERVER2 $gene_name\n");
+      my $gene_obj = $self->{gene_adaptor}->fetch_by_stable_id($gene_name);
+      if (!defined $gene_obj) {
+	print("No gene with that name\n");
+	$self->{gene_ids}{$gene_name} = undef;
+        die("No gene with name $gene_name\n");
       }
-      $gene_id = $self->{gene_ids}{$EnsemblGene->stable_id};
+      print("REAL NAME IS ".$gene_obj->stable_id."\n");
+      $self->{gene_ids}{$gene_name} = $self->_get_numerical_value('gene', $gene_obj->stable_id);
+      if (!defined $self->{gene_ids}{$gene_name}) {
+	print("No gene ID for ".$gene_obj->stable_id."\n");
+        die("No gene_id for $gene_obj->stable_id\n");
+      }
     }
 
-    if (!defined $gene_id) {
+    $gene = $self->{gene_ids}{$gene_name};
+
+    if (!defined $gene) {
       die("Did not recognize ".$coords->{gene}."\n".(scalar keys $self->{gene_ids}));
-    } else {
-      $gene = $gene_id;
     }
   }
 

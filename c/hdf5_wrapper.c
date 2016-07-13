@@ -489,6 +489,10 @@ static void store_values_in_matrix(hid_t file, hsize_t count, hsize_t ** coords,
 	}
 	VERIFY(H5Sselect_elements(filespace, H5S_SELECT_SET, count, coord));
 	clock_t start = clock();
+	if (DEBUG) {
+		printf(">>> HDF5 WRITING");
+		fflush(stdout);
+	}
 	VERIFY(H5Dwrite(dataset, H5T_NATIVE_DOUBLE, memspace, filespace, H5P_DEFAULT, values));
 	if (DEBUG)
 		printf("<<< HDF5 WRITE TIME\t%lf\n", ((double) (clock() - start)) / CLOCKS_PER_SEC);

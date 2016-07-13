@@ -1,8 +1,6 @@
 - Manual setting of chunks at XS level
 - Caching Y/N? 
 	H5Pset_chunk_cache (dataset, rdcc_nslots, rdcc_nbytes, 0);
-- Compression? 
-	H5Pset_deflate(property_list, 9);
 - Extensible datasets? 
 	dataspace = H5Screate_simple (RANK, dims, {H5S_UNLIMITED, H5S_UNLIMITED}); 
 - Shared labels? Use attribute hashes

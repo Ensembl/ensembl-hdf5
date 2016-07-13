@@ -454,6 +454,7 @@ static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t
 	hid_t cparms = H5Pcreate(H5P_DATASET_CREATE);
 	VERIFY(cparms);
 	VERIFY(H5Pset_chunk(cparms, rank, chunk_sizes));
+	VERIFY(H5Pset_deflate(cparms, 9));
 	if (DEBUG) {
 		printf("Creating matrix of rank %lli\n", rank);
 		printf("Size\tChunk\n", rank);

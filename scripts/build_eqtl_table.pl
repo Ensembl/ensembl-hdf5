@@ -43,7 +43,7 @@ use Bio::EnsEMBL::HDF5::EQTLAdaptor;
 use feature qw(say);
 $| = 1; # Autoflushes all print statements
 
-Bio::EnsEMBL::HDF5::set_log(1); # Small talk from the C layer
+Bio::EnsEMBL::HDF5::hdf5_set_log(1); # Small talk from the C layer
 
 main();
 
@@ -55,9 +55,6 @@ sub main {
     $fill = 1;
   }
 
-  $options{sqlite3} ||= $options{hdf5} . ".sqlite3";
-
-  print "Opening file $options{sqlite3}\n";
   my $eqtl_adaptor = build_eqtl_table(\%options);
 
   ## Stash the content of the files
@@ -74,7 +71,7 @@ sub main {
 
 sub get_options {
   my %options = ();
-  GetOptions(\%options, "help=s", "host|h=s", "port|p=s", "species|s=s", "user|u=s", "pass|p=s", "tissues|t=s@", "files|f=s@","hdf5=s", "sqlite3|d=s");
+  GetOptions(\%options, "help=s", "host|h=s", "port|p=s", "species|s=s", "user|u=s", "pass|p=s", "tissues|t=s@", "files|f=s@","hdf5=s", "sqlite3|d=s", "snp_info=s", "gene_info=s");
   if (defined $options{tissues} 
       && defined $options{files} 
       && (scalar @{$options{tissues}} != scalar @{$options{files}})) {
@@ -83,39 +80,15 @@ sub get_options {
   if (!defined $options{tissues} || scalar @{$options{tissues}} < 1) {
 	  die("No tissues!");
   }
+  $options{species} ||= 'homo_sapiens';
   return \%options;
-}
-
-sub extract_snp_ids_from_file {
-  my ($file) = @_;
-  defined $file || die;
-  my ($fh, $temp) = tempfile();
-  run("gzip -dc $file | cut -f1 | grep -v ^# |grep -v ^SNP | grep ^rs | sort | uniq > $temp");
-  if(!-e $temp || -z $temp) {
-    die "No data extracted from $file";
-  }
-  return $temp;
-}
-
-sub extract_snp_ids {
-  my ($files, $filename) = @_;
-  my $out = $filename.".gtex.snp.ids";
-  if (-e $out && !-z $out) {
-    return $out;
-  }
-  scalar @$files || die;
-  my @temps = map({extract_snp_ids_from_file($_)} @$files);
-  my ($fh, $temp) = tempfile();
-  run('sort -m ' .join(" ", @temps) ." | uniq > $out");
-  return $out;
 }
 
 sub build_eqtl_table {
   my ($options) = @_;
 
   say "Extracting SNP ids from input files";
-  my @files = @{$options->{files}};
-  my $snp_id_file = extract_snp_ids(\@files, $options->{hdf5});
+  my $snp_id_file = $options->{snp_info};
   
   my $registry = 'Bio::EnsEMBL::Registry';
   $registry->load_registry_from_db(
@@ -123,27 +96,25 @@ sub build_eqtl_table {
 	  -user => $options->{user}, 
 	  -pass => $options->{pass}, 
 	  -port => $options->{port}, 
-	  # -db_version => 73,
   );
 
   print "Building initial file\n";
   return Bio::EnsEMBL::HDF5::EQTLAdaptor->new(
           -filename         => $options->{hdf5},
-          -core_db_adaptor  => $registry->get_DBAdaptor('human', 'core'),
-          -var_db_adaptor   => $registry->get_DBAdaptor('human', 'variation'),
+          -core_db_adaptor  => $registry->get_DBAdaptor($options->{species}, 'core'),
+          -var_db_adaptor   => $registry->get_DBAdaptor($options->{species}, 'variation'),
           -tissues          => $options->{tissues},
           -statistics       => ['beta','p-value'],
           -dbfile           => $options->{sqlite3},
-          -snp_ids          => $snp_id_file,
+          -snp_ids          => $options->{snp_info},
+          -gene_ids          => $options->{gene_info},
   )
 }
 
 sub extract_file_data {
   my ($eqtl_adaptor, $filename, $tissue) = @_;
   my @result = ();
-
   open my $fh, "gunzip -c $filename |";
-  <$fh>; # Skip first header line
 
   # Go through all the lines in the file
   while (my $line = <$fh>) {
@@ -171,22 +142,4 @@ sub extract_file_data {
 
   close $fh;
   return \@result;
-}
-
-=head2 run
-
-  Description: Wrapper function for system calls
-  Arg1: Command line
-  Returntype: undef
-  Side effects: Runs command, prints out error in case of failure
-
-=cut
-
-sub run {
-  my ($cmd) = @_;
-  say "Running $cmd";
-  my $exit_code = system($cmd);
-  if ($exit_code != 0) {
-    die("Failure when running command\n$cmd")
-  }
 }

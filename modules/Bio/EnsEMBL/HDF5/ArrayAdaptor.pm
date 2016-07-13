@@ -43,17 +43,19 @@ use feature qw/say/;
 use Data::Dumper;
 
  BEGIN {
-   eval {require Bio::EnsEMBL::HDF5};
+   eval {
+     require Bio::EnsEMBL::HDF5;
+   };
    if ($@) {
+     say "Could not load HDF5 Adaptor. Trying SQLite alternative";
      eval {
-       say "Could not load HDF5 Adaptor. Trying SQLite alternative";
        require Bio::EnsEMBL::HDF5_sqlite;
      };
      if($@){
        die "Could not load any adaptor";
      }
      else{
-       say "UsingHDF5_sqlite";
+       say "Using HDF5_sqlite";
        Bio::EnsEMBL::HDF5_sqlite->import( qw(
          hdf5_close
          hdf5_create
@@ -318,7 +320,10 @@ sub store {
     eval { push @converted_points, $self->_convert_coords($point); };
   }
   print "CONVERTED VALUES ". (time - $start) . "\n";
+  print "WRITING\n";
+  $start = time;
   hdf5_store($self->{hdf5}, \@converted_points);
+  print "WROTE ". (time - $start) . "\n";
 }
 
 =head2 get_dim_labels

@@ -103,13 +103,11 @@ sub new {
   # If not hdf5 sqlite3 file has provided, create one using base of hdf5 file
   $db_file ||= $hdf5_file . ".sqlite3";
 
-  my $snp_data_file = $hdf5_file.".snp.ids";
-
   my $self;
   ## If creating a new database
   if (! -e $hdf5_file || -z $hdf5_file) {
     say 'Creating a new DB (no hdf5 file passed or size 0)';
-    my $curated_snp_id_file = _curate_variant_names($variation_db, $snp_id_file, $snp_data_file);
+    my $curated_snp_id_file = $snp_id_file;
 
     my $snp_count = `wc -l $curated_snp_id_file | sed -e 's/ .*//'`;
     chomp $snp_count;
@@ -157,7 +155,7 @@ sub new {
   } else {
     $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $db_file);
     $self->{hdf5_file} = $hdf5_file;
-    $self->_load_snp_aliases($snp_data_file);
+    $self->_load_snp_aliases($snp_id_file);
   }
 
   $self->{variation_adaptor}  = $variation_db->get_adaptor("variation");
@@ -238,56 +236,6 @@ sub _store_gene_labels {
     my @labels = map { $_->stable_id } sort _by_position @{$gene_adaptor->fetch_all_by_Slice($slice)};
     $self->store_dim_labels('gene', \@labels);
   }
-}
-
-=head2 _curate_variant_names
-  $snps_id_file = list of unique IDs (rs or GTEX) parsed from GTEX file
-  $file_hdf5_snps = contains chr, pos, rsID, ID from $snps_id_file.
-                    sorted first by chr, then by pos
-
-  Output:
-  $seq_region_name	$seq_region_start	$seq_region_end	$rs_id	$old_rs_id	$display_consequence
-=cut
-
-sub _curate_variant_names {
-  my ($variation_db, $snps_id_file, $file_hdf5_snps) = @_;
-
-  if (-e $file_hdf5_snps && ! -z $file_hdf5_snps) {
-    return $file_hdf5_snps;
-  }
-
-  print "Storing dataset variation IDs in temporary table\n";
-  my $va  = $variation_db->get_adaptor("variation");
-
-  ## We start by storing all the variation labels
-  ## unsorted into a temporary file
-  my ($out, $temp) = tempfile;
-#  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
-  open my $in, "<", $snps_id_file;
-  while (my $line = <$in>) {
-    chomp $line;
-    $line =~ /^(rs\d+)/;
-    my $rsid = $1;
-    if (! defined $rsid) {
-      die "Expect rsID (/^rs\\d+/), not $rsid";
-    }
-
-    my $variant = $va->fetch_by_name($rsid);
-
-    my $features = $variant->get_all_VariationFeatures;
-    if (! scalar @$features) {
-      next;
-    }
-    my $feature = $features->[0];
-
-    print $out join("\t", ($feature->seq_region_name, $feature->seq_region_start, $feature->seq_region_end, $feature->variation_name, $rsid, $feature->display_consequence))."\n";
-  }
-
-  `sort -k1,1 -k2,2n $temp > $file_hdf5_snps`;
-
-  close $in;
-  close $out;
-  return $file_hdf5_snps;
 }
 
 =head2 _store_variation_labels

@@ -44,6 +44,7 @@ use base qw( Bio::EnsEMBL::HDF5::ArrayAdaptor );
 use POSIX qw/ strftime /;
 use File::Copy qw/ copy /;
 use List::Util qw/reduce max/;
+use File::Temp qw/ tempfile /;
 use feature qw/say/;
 
 use Bio::EnsEMBL::Utils::Argument qw/rearrange/;

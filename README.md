@@ -96,6 +96,7 @@ my $aa = new Bio::EnsEMBL::HDF5::ArrayAdaptor(
 $as->store_dim_labels('gene', $dim_labels{gene});
 $as->store_dim_labels('snp', ['rs1']);
 $as->store_dim_labels('snp', ['rs2']);
+$as->index_tables();
 
 $aa->store($original_data);
 ```

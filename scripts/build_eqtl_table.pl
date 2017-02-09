@@ -88,7 +88,13 @@ sub build_eqtl_table {
   my ($options) = @_;
 
   say "Extracting SNP ids from input files";
-  my $snp_id_file = $options->{snp_info};
+  my $snp_id_file = undef; 
+  if (! defined $options->{snp_info}) {
+	  my @files = @{$options->{files}};
+	  $snp_id_file = extract_snp_ids(\@files, $options->{hdf5});
+  } else {
+	  $snp_id_file = $options->{snp_info};
+  }
   
   my $registry = 'Bio::EnsEMBL::Registry';
   $registry->load_registry_from_db(

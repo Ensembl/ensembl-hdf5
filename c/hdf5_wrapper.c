@@ -120,7 +120,7 @@ static void create_string_array_table(hid_t file, char * dataset_name, hsize_t c
 
 static void store_string_array(hid_t file, char * dataset_name, hsize_t count, char ** strings) {
 	if (DEBUG) {
-		printf("Writing in %lli names into dataset %s of file %i:\n", count, dataset_name, file);
+		printf("Writing in %lli names into dataset %s of file %li:\n", count, dataset_name, file);
 		if (DEBUG > 1) {
 			int i;
 			for (i = 0; i < count; i++)
@@ -259,7 +259,7 @@ static void store_dim_names(hid_t file, hsize_t rank, char ** strings) {
 
 StringArray * get_dim_names(hid_t file) {
 	if (DEBUG) {
-		printf(">>>>>>>>>>>>>>> READING DIM NAMES IN FILE %i\n", file);
+		printf(">>>>>>>>>>>>>>> READING DIM NAMES IN FILE %li\n", file);
 	}
 	StringArray * sa = get_string_array(file, "/dim_names");
 	if (DEBUG) {
@@ -456,7 +456,7 @@ static void create_matrix(hid_t file, hsize_t rank, hsize_t * dim_sizes, hsize_t
 	VERIFY(H5Pset_chunk(cparms, rank, chunk_sizes));
 	if (DEBUG) {
 		printf("Creating matrix of rank %lli\n", rank);
-		printf("Size\tChunk\n", rank);
+		printf("Size\tChunk\n");
 		int i;
 		for (i = 0; i < rank; i++)
 			printf("%lli\t%lli\n", dim_sizes[i], chunk_sizes[i]);
@@ -1069,7 +1069,7 @@ hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * di
 void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** strings) {
 	hsize_t dim;
 	if (DEBUG) {
-		printf(">>>>>>>>>>>>>>> STORE %lli DIM LABEL(S) FOR DIM %s IN FILE %i:\n", dim_size, dim_name, file);
+		printf(">>>>>>>>>>>>>>> STORE %lli DIM LABEL(S) FOR DIM %s IN FILE %li:\n", dim_size, dim_name, file);
 		if (DEBUG > 1) {
 			for (dim = 0; dim < dim_size; dim++)
 				printf("%lli:\t%s\n", dim, strings[dim]);
@@ -1118,11 +1118,11 @@ hid_t open_file(char * filename) {
 StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * constraints) {
 	hsize_t rank = get_file_rank(file);
 	if (DEBUG) {
-		printf(">>>>>>>>>>>>>>> FETCHING STRING VALUES FROM FILE %i:\n", file);
+		printf(">>>>>>>>>>>>>>> FETCHING STRING VALUES FROM FILE %li:\n", file);
 		hid_t dim;
 		for (dim = 0; dim < rank; dim++)
 			if (set_dims[dim])
-				printf("%i = %lli\n", dim, constraints[dim]);
+				printf("%li = %lli\n", dim, constraints[dim]);
 	}
 	hsize_t * offset = calloc(rank, sizeof(hsize_t));
 	hsize_t * width = calloc(rank, sizeof(hsize_t));
@@ -1180,7 +1180,7 @@ void destroy_string_result_table(StringResultTable * table) {
 
 void close_file(hid_t file) {
 	if (DEBUG)
-		printf(">>>>>>>>>>>>>>> CLOSING FILE %i\n", file);
+		printf(">>>>>>>>>>>>>>> CLOSING FILE %li\n", file);
 	VERIFY(H5Fclose(file));
 }
 

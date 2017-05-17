@@ -38,7 +38,7 @@ int main(int argc, char ** argv) {
 
 	close_file(file);
 
-	file = open_file("TEST.hd5");
+	file = open_file("TEST.hd5", 0);
 	store_dim_labels(file, "gene", 2, xlabels);
 	store_dim_labels(file, "snp", 1, ylabels2);
 

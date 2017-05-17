@@ -49,7 +49,7 @@ typedef struct string_result_table_st {
 hid_t create_file(char * filename, hsize_t rank, char ** dim_names, hsize_t * dim_sizes, hsize_t * dim_label_lengths, hsize_t * chunk_sizes);
 void store_dim_labels(hid_t file, char * dim_name, hsize_t dim_size, char ** dim_labels);
 void store_values(hid_t file, hsize_t count, hsize_t ** coords, double * values);
-hid_t open_file(char * filename);
+hid_t open_file(char * filename, int readonly);
 StringResultTable * fetch_string_values(hid_t file, bool * set_dims, hsize_t * constraints);
 void destroy_string_result_table(StringResultTable * table);
 void close_file(hid_t file);

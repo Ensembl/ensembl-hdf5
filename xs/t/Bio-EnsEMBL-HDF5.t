@@ -76,6 +76,10 @@ foreach my $data_point (@output_data) {
   }
 }
 
+# Testing 
+Bio::EnsEMBL::HDF5::hdf5_close($hdfh);
+ok($hdfh = Bio::EnsEMBL::HDF5::hdf5_open($filename, 1));
+
 # Pulling out a subset of the data
 @output_data = @{Bio::EnsEMBL::HDF5::hdf5_fetch($hdfh, {gene => 0})};
 

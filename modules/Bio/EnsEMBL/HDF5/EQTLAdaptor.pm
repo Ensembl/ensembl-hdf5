@@ -100,7 +100,7 @@ sub new {
     'TISSUES','STATISTICS','DBFILE','SNP_IDS', 'GENE_IDS'], @_);
 
   if (! defined $hdf5_file) {
-    die("Cannot create HDF5 adaptor around undef filename!\n");
+    die("Cannot create HDF5 adaptor around undef filename!");
   }
   # If not hdf5 sqlite3 file has provided, create one using base of hdf5 file
   $db_file ||= $hdf5_file . ".sqlite3";
@@ -263,7 +263,7 @@ sub _curate_variant_names {
   ## unsorted into a temporary file
   my ($out, $temp) = tempfile;
 #  die "Empty..." if(-e $file_gtex_snps and -z $file_gtex_snps);
-  open my $in, "<", $snps_id_file;
+  open my $in, "<", $snps_id_file or die "Could not open '$snps_id_file'\t$!";
   while (my $line = <$in>) {
     chomp $line;
     $line =~ /^(rs\d+)/;

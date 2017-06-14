@@ -90,13 +90,15 @@ use Data::Dumper;
 
 sub new {
   my $class = shift;
-  my ($filename, $dim_sizes, $dim_label_lengths, $dbname) =
-  rearrange(['FILENAME','SIZES', 'LABEL_LENGTHS','DBNAME'], @_);
+  my ($filename, $dim_sizes, $dim_label_lengths, $dbname, $read_only) =
+  rearrange(['FILENAME','SIZES', 'LABEL_LENGTHS','DBNAME', 'READ_ONLY'], @_);
 
   defined $filename || die ("Must specify HDF5 filename!");
 
   $dbname ||= $filename . ".sqlite3";
-
+  if(!defined $read_only or $read_only != 1){
+    $read_only = 0;
+  } 
 
   my $self = {
     hdf5 => undef,
@@ -137,7 +139,7 @@ sub new {
     $self->_create_sqlite3_file($filename, \@dim_names);
   }
 
-  $self->{hdf5} = hdf5_open($filename);
+  $self->{hdf5} = hdf5_open($filename, $read_only);
 
   return $self;
 }

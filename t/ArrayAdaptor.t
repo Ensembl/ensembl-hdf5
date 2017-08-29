@@ -79,7 +79,6 @@ ok(defined $data_point->{snp});
 ok(defined $data_point->{value});
 ok($data_point->{snp} eq 'rs1');
 ok(abs($data_point->{value} - .1) < 1e-4);
-ok($data_point->{value} == .1);
 
 # Test whether an error is raised when an unkown gene is requested
 ok(eval {$aa->fetch({gene => 'C'}); 0;} || 1);

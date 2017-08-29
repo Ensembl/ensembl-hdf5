@@ -62,10 +62,10 @@ foreach my $data_point (@output_data) {
   ok(defined $data_point->{value});
   if ($data_point->{gene} eq 'A') {
       ok($data_point->{snp} eq 'rs1');
-      ok($data_point->{value} == .1);
+      ok(abs($data_point->{value} - .1) < 1e-4);
     } elsif ($data_point->{gene} eq 'B') {
       ok($data_point->{snp} eq 'rs2');
-      ok($data_point->{value} == .2);
+      ok(abs($data_point->{value} - .2) < 1e-4);
     }
 }
 
@@ -78,6 +78,7 @@ ok(!defined $data_point->{gene});
 ok(defined $data_point->{snp});
 ok(defined $data_point->{value});
 ok($data_point->{snp} eq 'rs1');
+ok(abs($data_point->{value} - .1) < 1e-4);
 ok($data_point->{value} == .1);
 
 # Test whether an error is raised when an unkown gene is requested

@@ -419,6 +419,10 @@ sub _convert_coords {
       $gene = $coords->{gene};
     } else {
       printf("CONNECTING TO CORE SERVER $coords->{gene}\n");
+      my $genes = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene});
+      if(! defined $genes->[0]){
+        die $coords->{gene} . " not found in current Ensembl version. Check spelling.\n";
+      }
       $gene = $self->{gene_adaptor}->fetch_all_by_external_name($coords->{gene})->[0]->stable_id;
     }
     my $gene_id = $self->{gene_ids}{$gene};

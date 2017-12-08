@@ -510,7 +510,7 @@ sub fetch{
       $correlation->{seq_region_end}      = $seq_region_end;
       $correlation->{display_consequence} = $display_consequence;
     }
-    if($constraints->{statistic} eq 'p-value' ||  $correlation->{statistic} eq 'p-value'){
+    if ( ( defined $constraints->{statistic} && $constraints->{statistic} eq 'p-value' ) || ( defined $correlation->{statistic} && $correlation->{statistic} eq 'p-value' ) ) {
       $correlation->{minus_log10_p_value} = -1*( log($correlation->{value})/log(10) );
     }
   }

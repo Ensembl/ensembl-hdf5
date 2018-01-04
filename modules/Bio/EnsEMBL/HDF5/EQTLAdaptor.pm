@@ -409,7 +409,7 @@ sub _convert_coords {
     }
 
     if (! defined $snp) {
-      die("Did not recognize ".$coords->{snp}."\n");
+      die("No data found for ".$coords->{snp}."\n");
     }
   }
 

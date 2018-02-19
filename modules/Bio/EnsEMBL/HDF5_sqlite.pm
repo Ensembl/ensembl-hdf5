@@ -292,7 +292,7 @@ sub hdf5_fetch {
   $sth->execute;
   my @array = ();
   while (my $row = $sth->fetchrow_hashref) {
-    my %hash = map { $_ => $dim_labels->{$_}->[$row->{$_}]} keys $row;
+    my %hash = map { $_ => $dim_labels->{$_}->[$row->{$_}]} keys %$row;
     $hash{value} = $row->{value};
     push @array, \%hash;
   }

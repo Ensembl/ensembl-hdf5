@@ -50,7 +50,7 @@ use Data::Dumper;
        require Bio::EnsEMBL::HDF5_sqlite;
      };
      if($@){
-       die "Could not load any adaptor";
+       die "Could not load any adaptor\n $@";
      }
      else{
        say "UsingHDF5_sqlite";

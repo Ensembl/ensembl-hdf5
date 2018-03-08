@@ -437,7 +437,7 @@ sub _convert_coords {
     }
 
     if (!defined $gene_id) {
-      die("Did not recognize ".$coords->{gene}."\n".(scalar keys $self->{gene_ids}));
+       die("Did not recognize ".$coords->{gene}."\n".(scalar keys %{ $self->{gene_ids} } ));
     } else {
       $gene = $gene_id;
     }

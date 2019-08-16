@@ -28,7 +28,7 @@ BEGIN { use_ok('Bio::EnsEMBL::HDF5') };
 use Bio::EnsEMBL::HDF5;
 
 # For chatty output
-#Bio::EnsEMBL::HDF5::set_log(1);
+#Bio::EnsEMBL::HDF5::hdf5_set_log(1);
 
 my ($fh, $filename) = tempfile();
 Bio::EnsEMBL::HDF5::hdf5_create($filename, {gene => 2, snp => 2}, {gene => 1, snp => 3});

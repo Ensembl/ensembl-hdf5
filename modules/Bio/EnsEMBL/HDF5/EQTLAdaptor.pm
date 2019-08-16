@@ -87,7 +87,10 @@ use Data::Dumper;
       -CORE_DB_ADAPTOR : Bio::EnsEMBL::DBSQL::DBAdaptor (required if creating new HDF5)
       -VAR_DB_ADAPTOR  : Bio::EnsEMBL::Variation::DBSQL::DBAdaptor (required if creating new HDF5)
       -TISSUES         : Array ref of string names (required if creating new HDF5)
+      -STATISTICS      : List of statistic names (required if creating new HDF5)
       -DBFILE          : path to SQLite3 file, if non standard
+      -SNP_IDS         : List of known SNP IDs (required if creating new HDF5)
+      -GENE_IDS        : List of known Gene IDs (required if creating new HDF5)
     Returntype   : Bio::EnsEMBL::HDF5::EQTLAdaptor
 
 =cut
@@ -95,9 +98,9 @@ use Data::Dumper;
 sub new {
   my $class = shift;
   my ($hdf5_file, $core_db, $variation_db,
-    $tissues, $statistics, $db_file, $snp_id_file, $gene_ids) =
+    $tissues, $statistics, $db_file, $snp_id_file, $gene_ids, $read_only) =
   rearrange(['FILENAME','CORE_DB_ADAPTOR','VAR_DB_ADAPTOR',
-    'TISSUES','STATISTICS','DBFILE','SNP_IDS', 'GENE_IDS'], @_);
+    'TISSUES','STATISTICS','DBFILE','SNP_IDS', 'GENE_IDS', 'READ_ONLY'], @_);
 
   if (! defined $hdf5_file) {
     die("Cannot create HDF5 adaptor around undef filename!");
@@ -156,7 +159,7 @@ sub new {
     $self->index_tables;
   } else {
     say "$hdf5_file";
-    $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $db_file);
+    $self = $class->SUPER::new(-FILENAME => $hdf5_file, -DBNAME => $db_file, -READ_ONLY => 1);
     $self->{hdf5_file} = $hdf5_file;
   }
 

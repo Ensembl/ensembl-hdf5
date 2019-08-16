@@ -77,21 +77,25 @@ hdf5_create(filename_sv, dim_sizes_hv, dim_label_lengths_hv)
 		free(dim_label_lengths);
 
 void * 
-hdf5_open(filename_sv, readonly=NULL)
+hdf5_open(filename_sv, readonly_sv=NULL)
 		SV * filename_sv
-		SV * readonly
+		SV * readonly_sv
 	PREINIT:
 		struct hdf5_file_st * file;
 		char * filename;
 		StringArray * dim_names_sa;
-		int index, dim, rank;
+		int index, dim, rank, readonly;
 	CODE:
 		// Create struct 
 		file = calloc(1, sizeof(struct hdf5_file_st));
 
 		// Open file
 		filename = SvPV_nolen(filename_sv);
-		file->file = open_file(filename, 1);
+		if (readonly_sv == NULL)
+			readonly = 0;
+		else
+			readonly = SvIV(readonly_sv);
+		file->file = open_file(filename, readonly);
 
 		// Allocate storage
 		rank = get_file_rank(file->file);

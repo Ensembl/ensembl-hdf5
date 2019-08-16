@@ -69,6 +69,7 @@ hdf5_create(filename_sv, dim_sizes_hv, dim_label_lengths_hv)
 		// Create file
 		filename = SvPV_nolen(filename_sv);
 		file = create_file(filename, rank, dim_names, dim_sizes, dim_label_lengths, NULL);
+		close_file(file);
 
 		// Clean up memory
 		free(dim_names);
